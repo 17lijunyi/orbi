@@ -166,7 +166,7 @@ pub async fn review(app: &Arc<App>, bot: &Bot, chat_id: &str, trigger: &Trigger,
     if matches!(message.stop_reason, StopReason::Aborted | StopReason::Error) {
         let error = message.error_message.unwrap_or_else(|| "no answer".into());
         tracing::warn!(%error, "auto-review call failed");
-        return Outcome::ask("Auto-review could not check this action.");
+        return Outcome::ask(format!("Auto-review could not check this action ({error})."));
     }
     tracing::debug!(reply = %message.text(), "auto-review verdict");
     match parse_verdict(&message.text()) {
