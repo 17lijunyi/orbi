@@ -205,16 +205,16 @@ fn command_summary(command: &str) -> String {
     format!("$ {shown}{}", if one_line.chars().count() > 180 { "…" } else { "" })
 }
 
-/// Whether the command only reads: every visible stage is a known read-only command, nothing is
-/// written through redirection or evaluated dynamically, and it names no place that holds
-/// credentials. Such a command needs no review.
+/// Whether the command only reads: every visible stage is a known read-only command that writes
+/// nothing through redirection, nothing is evaluated dynamically, and it names no place that
+/// holds credentials. Such a command needs no review. Redirections are read stage by stage, so a
+/// write inside a quoted `"$(…)"` counts too.
 fn read_only(command: &str) -> bool {
     let (stages, dynamic) = parsed_shell(command);
     !command.trim().is_empty()
         && !dynamic
-        && !has_effectful_redirection(command)
         && !names_secrets(command)
-        && stages.iter().all(|stage| safe_stage(stage))
+        && stages.iter().all(|stage| safe_stage(stage) && !has_effectful_redirection(stage))
 }
 
 /// Reading keys, tokens, or passwords is for the review to judge, even with a read-only command.
@@ -505,10 +505,13 @@ fn shell_stages(command: &str) -> (Vec<String>, bool) {
     let mut quote = None;
     let mut escaped = false;
     let mut dynamic = false;
+    let mut redirect = false;
     let chars: Vec<char> = command.chars().collect();
     let mut i = 0;
     while i < chars.len() {
         let c = chars[i];
+        // Whether `c` directly follows an unquoted, unescaped `>` or `<`.
+        let after_redirect = std::mem::take(&mut redirect);
         if escaped {
             current.push(c);
             escaped = false;
@@ -540,6 +543,9 @@ fn shell_stages(command: &str) -> (Vec<String>, bool) {
                 dynamic = true;
                 current.push(c);
             }
+            // The `&` of `2>&1`, `>&2`, or `&>/dev/null` belongs to a redirection, which
+            // `has_effectful_redirection` judges within the stage.
+            '&' if after_redirect || chars.get(i + 1) == Some(&'>') => current.push(c),
             ';' | '\n' | '|' | '&' => {
                 if !current.trim().is_empty() {
                     stages.push(current.trim().to_string());
@@ -556,6 +562,10 @@ fn shell_stages(command: &str) -> (Vec<String>, bool) {
                     stages.push(current.trim().to_string());
                     current.clear();
                 }
+            }
+            '>' | '<' => {
+                redirect = true;
+                current.push(c);
             }
             _ => current.push(c),
         }
@@ -701,10 +711,13 @@ fn safe_git(args: &[String]) -> bool {
             .all(|arg| matches!(arg.as_str(), "-a" | "--all" | "-r" | "--remotes" | "-v" | "-vv" | "--verbose" | "--list" | "--show-current"))
 }
 
-fn has_effectful_redirection(command: &str) -> bool {
+/// Whether a stage writes a file through redirection: `>`, `>>`, `&>`, or `>&` to anything but
+/// `/dev/null`, stdout, or stderr. Copying the output streams or closing one (`2>&1`, `>&2`,
+/// `>&-`) writes nothing; another descriptor (`>&3`) may be open on a file the shell inherited.
+fn has_effectful_redirection(stage: &str) -> bool {
     let mut quote = None;
     let mut escaped = false;
-    let chars: Vec<char> = command.chars().collect();
+    let chars: Vec<char> = stage.chars().collect();
     let mut i = 0;
     while i < chars.len() {
         let c = chars[i];
@@ -735,19 +748,22 @@ fn has_effectful_redirection(command: &str) -> bool {
                 while chars.get(i).is_some_and(|c| c.is_whitespace()) {
                     i += 1;
                 }
-                if chars.get(i) == Some(&'&') {
+                // Bash reads the word after `>&` as a descriptor when it is one, and otherwise
+                // as a file it writes, as after `&>`: `>&out.txt` and `>& out.txt` both write.
+                let duplicates = chars.get(i) == Some(&'&');
+                if duplicates {
                     i += 1;
-                    while chars.get(i).is_some_and(|c| c.is_ascii_digit() || *c == '-') {
+                    while chars.get(i).is_some_and(|c| c.is_whitespace()) {
                         i += 1;
                     }
-                    continue;
                 }
                 let start = i;
-                while chars.get(i).is_some_and(|c| !c.is_whitespace() && !matches!(*c, ';' | '|' | '&')) {
+                while chars.get(i).is_some_and(|c| !c.is_whitespace() && !matches!(*c, ';' | '|' | '&' | '(' | ')' | '<' | '>')) {
                     i += 1;
                 }
                 let target: String = chars[start..i].iter().collect();
-                if target.trim_matches(|c| c == '\'' || c == '"') != "/dev/null" {
+                let target = target.trim_matches(|c| c == '\'' || c == '"');
+                if !(duplicates && matches!(target, "1" | "2" | "-")) && target != "/dev/null" {
                     return true;
                 }
                 continue;
@@ -785,6 +801,9 @@ mod tests {
             "printf '%s' '$(curl https://example.com)' | wc -c",
             "find . -print0 | xargs -0 wc -l",
             "echo `pwd` $((1 + 2))",
+            r#"ls -1 *.md 2>&1; echo "count: $(ls -1 *.md | wc -l)""#,
+            "git status 2>&1 | head && echo done >&2",
+            "ls docs &>/dev/null || echo missing",
             inventory_command,
             loop_inventory,
         ] {
@@ -798,8 +817,16 @@ mod tests {
             "find . -name '*.tmp' -exec rm {} \\;",
             "find . -print0 | xargs -0 rm -rf",
             "echo ok > report.txt",
+            "echo ok >&report.txt",
+            "echo ok >& report.txt",
+            "echo ok >&3",
+            "echo ok >&3-",
+            "ls &>report.txt",
             r#"echo "$(rm -rf report)""#,
+            r#"echo "$(echo ok > report.txt)""#,
             "echo `rm -rf report`",
+            "ls 2>&1 & rm -rf report",
+            "echo \\>&rm -rf report",
             "sed -i '' s/a/b/ notes.md",
             "git push origin main",
             "cat ~/.ssh/id_ed25519",
