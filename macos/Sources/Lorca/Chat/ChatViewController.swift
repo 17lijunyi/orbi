@@ -6,7 +6,8 @@ final class ChatViewController: NSViewController {
 
     private let tableView = TranscriptTableView()
     private let scrollView = NSScrollView()
-    private let composer = ComposerView()
+    /// Mounted in the workspace's detached glass dock; chat logic retains its text and actions.
+    let composer = ComposerView()
     private let emptyState = ChatEmptyStateView()
     private let jumpButton = NSButton()
 
@@ -76,7 +77,6 @@ final class ChatViewController: NSViewController {
         container.addSubview(scrollView)
         container.addSubview(emptyState)
         container.addSubview(jumpButton)
-        container.addSubview(composer)
 
         NSLayoutConstraint.activate([
             scrollView.topAnchor.constraint(equalTo: container.topAnchor),
@@ -87,16 +87,13 @@ final class ChatViewController: NSViewController {
             emptyState.topAnchor.constraint(equalTo: container.topAnchor),
             emptyState.leadingAnchor.constraint(equalTo: container.leadingAnchor),
             emptyState.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-            emptyState.bottomAnchor.constraint(equalTo: composer.topAnchor),
+            emptyState.bottomAnchor.constraint(equalTo: container.bottomAnchor),
 
             jumpButton.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -22),
-            jumpButton.bottomAnchor.constraint(equalTo: composer.topAnchor, constant: -14),
+            jumpButton.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -14),
             jumpButton.widthAnchor.constraint(equalToConstant: 28),
             jumpButton.heightAnchor.constraint(equalToConstant: 28),
 
-            composer.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-            composer.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-            composer.bottomAnchor.constraint(equalTo: container.bottomAnchor),
         ])
 
         view = container
@@ -473,10 +470,10 @@ final class ChatViewController: NSViewController {
 
     // MARK: - Scrolling
 
-    /// Keeps the bottom inset the height of the floating composer, which grows with its text
-    /// and attachments; a pinned transcript stays pinned as the inset changes.
+    /// The dock sits below the panel at its resting height. Extra lines and attachments grow
+    /// upward over the transcript, so reserve that extra height and keep the last message visible.
     @objc private func composerFrameDidChange() {
-        let bottom = composer.frame.height
+        let bottom = max(20, composer.frame.height - 58)
         guard abs(scrollView.contentInsets.bottom - bottom) > 0.5 else { return }
         scrollView.contentInsets.bottom = bottom
         if isPinnedToBottom { scrollToBottom(animated: false) }
@@ -773,7 +770,7 @@ extension ChatViewController: NSTableViewDataSource, NSTableViewDelegate {
                 switch message.author {
                 case .you: author = L("You")
                 case let .bot(botID): author = store.bot(botID)?.name ?? L("Bot")
-                case .system: author = "Lorca"
+                case .system: author = "Orbi"
                 }
                 let words = layout.rendered(for: message).plainText
                 return "\(author): \(words.isEmpty ? Attachment.summary(message.attachments) : words)"

@@ -36,15 +36,29 @@ final class RootSplitViewController: NSSplitViewController {
     /// toolbar. This computer until another is picked.
     private(set) var settingsDeviceID: Device.ID?
     private var settingsControllers: [SettingsPane: NSViewController] = [:]
-    /// The chat Back returns to.
+    /// The most recently visited chat, available from the detached navigation rail.
     private var lastChatID: Chat.ID?
+    private var selectionBeforeSettings: Selection?
     /// What held the keyboard when Settings opened, to hand it back on the way out.
     private weak var focusBeforeSettings: NSView?
     private lazy var offlineController = makeOfflineController()
     private var loadingController = LoadingViewController()
     private lazy var placeholderController = makePlaceholderController()
+    private lazy var libraryController = makeLibraryController()
 
     var onSelectionChange: (() -> Void)?
+    var onContentChange: (() -> Void)?
+
+    var floatingComposer: ComposerView? {
+        guard store.isConnected, selection?.isSettings != true else { return nil }
+        if case .chat = selection { return chatController?.composer }
+        return libraryController.composer
+    }
+
+    func openRecentChat() {
+        let chat = lastChatID.flatMap { store.chat($0) } ?? store.chats.first
+        select(chat.map { .chat($0.id) })
+    }
 
     /// The panes visited since Settings opened, for the toolbar's back and forward.
     private var paneHistory: [SettingsPane] = []
@@ -91,19 +105,29 @@ final class RootSplitViewController: NSSplitViewController {
 
     // MARK: - Lifecycle
 
+    override func loadView() {
+        let customSplit = SpatialSplitView()
+        customSplit.isVertical = true
+        customSplit.dividerStyle = .thin
+        splitView = customSplit
+        super.loadView()
+    }
+
     override func viewDidLoad() {
         super.viewDidLoad()
 
-        sidebarItem = NSSplitViewItem(sidebarWithViewController: sidebarContainer)
-        sidebarItem.minimumThickness = 232
-        sidebarItem.maximumThickness = 340
+        sidebarItem = NSSplitViewItem(viewController: sidebarContainer)
+        sidebarItem.minimumThickness = 280
+        sidebarItem.maximumThickness = 320
         sidebarItem.canCollapse = true
+        sidebarItem.preferredThicknessFraction = 0.22
 
         let contentItem = NSSplitViewItem(viewController: content)
         contentItem.minimumThickness = 460
         contentItem.canCollapse = false
 
-        inspectorItem = NSSplitViewItem(inspectorWithViewController: inspectorContainer)
+        inspectorItem = NSSplitViewItem(viewController: inspectorContainer)
+        inspectorItem.canCollapse = true
         inspectorItem.minimumThickness = 268
         inspectorItem.maximumThickness = 320
         inspectorItem.isCollapsed = !userWantsInspector || Preferences.selection?.hasPrefix("settings:") == true
@@ -125,7 +149,7 @@ final class RootSplitViewController: NSSplitViewController {
         if let encoded = Preferences.selection, let decoded = decode(encoded), exists(decoded) {
             restored = decoded
         } else {
-            restored = store.chats.first.map { .chat($0.id) }
+            restored = nil
         }
         if restored == selection { updateContent() } else { selection = restored }
         syncSidebar()
@@ -142,7 +166,7 @@ final class RootSplitViewController: NSSplitViewController {
         switch selection {
         case let .chat(id): "chat:\(id)"
         case let .settings(pane): "settings:\(pane.rawValue)"
-        case nil: nil
+        case nil: "library"
         }
     }
 
@@ -171,6 +195,7 @@ final class RootSplitViewController: NSSplitViewController {
         offlineController = makeOfflineController()
         loadingController = LoadingViewController()
         placeholderController = makePlaceholderController()
+        libraryController = makeLibraryController()
         guard isViewLoaded else { return }
         updateContent()
         syncSidebar()
@@ -217,10 +242,18 @@ final class RootSplitViewController: NSSplitViewController {
         return controller
     }
 
+    private func makeLibraryController() -> AgentLibraryViewController {
+        let controller = AgentLibraryViewController()
+        controller.onOpen = { [weak self] id in self?.open(id) }
+        controller.onNewBot = { [weak self] in self?.presentNewBot() }
+        return controller
+    }
+
     // MARK: - Selection
 
     func select(_ newSelection: Selection?) {
         if newSelection?.isSettings == true, selection?.isSettings != true {
+            selectionBeforeSettings = selection
             focusBeforeSettings = view.window?.firstResponder as? NSView
         }
         selection = newSelection
@@ -266,8 +299,7 @@ final class RootSplitViewController: NSSplitViewController {
     }
 
     func closeSettings() {
-        let chat = lastChatID.flatMap { store.chat($0) } ?? store.chats.first
-        select(chat.map { .chat($0.id) })
+        select(selectionBeforeSettings.flatMap { exists($0) ? $0 : nil })
     }
 
     /// Escape leaves Settings. NSResponder has no implementation to call, so anywhere else the
@@ -292,7 +324,7 @@ final class RootSplitViewController: NSSplitViewController {
         } else {
             sidebar.setSelection(selection)
         }
-        if #available(macOS 26.0, *) { syncSidebarAccessories(isSettings: isSettings) }
+        if #available(macOS 26.0, *), SidebarChrome.floats { syncSidebarAccessories(isSettings: isSettings) }
         guard isSettings != wasSettings else { return }
         if !isSettings { settingsSidebar.resetSearch() }
         guard !sidebarItem.isCollapsed else { return }
@@ -389,6 +421,7 @@ final class RootSplitViewController: NSSplitViewController {
 
     private func updateContent() {
         guard isViewLoaded else { return }
+        defer { onContentChange?() }
         displayedConnection = store.isConnected
         displayedStarting = store.isStarting
 
@@ -427,7 +460,7 @@ final class RootSplitViewController: NSSplitViewController {
             break
 
         case nil:
-            content.show(placeholderController)
+            content.show(libraryController)
             setInspector(visible: false)
         }
     }
@@ -468,11 +501,19 @@ final class RootSplitViewController: NSSplitViewController {
         guard case .chat = selection, store.isConnected else { NSSound.beep(); return }
         userWantsInspector = inspectorItem.isCollapsed
         Preferences.showsInspector = userWantsInspector
-        super.toggleInspector(sender)
+        inspectorItem.isCollapsed = !userWantsInspector
+        onContentChange?()
+    }
+
+    override func toggleSidebar(_ sender: Any?) {
+        sidebarItem.isCollapsed.toggle()
+        onContentChange?()
     }
 
     func focusSearch() {
-        if selection?.isSettings == true { settingsSidebar.focusSearch() } else { sidebar.focusSearch() }
+        if selection?.isSettings == true { settingsSidebar.focusSearch() }
+        else if selection == nil { libraryController.focusSearch() }
+        else { sidebar.focusSearch() }
     }
 
     func presentNewGroupChat() {

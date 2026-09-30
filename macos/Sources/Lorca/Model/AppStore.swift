@@ -726,12 +726,12 @@ final class AppStore {
     func marketplace() async throws -> Marketplace {
         if isMock { return MockData.marketplace() }
         let wire = try await client.request("marketplace", [:], as: Wire.Marketplace.self)
-        return Marketplace(plugins: wire.plugins.map { $0.toModel() }, bots: wire.bots.map { $0.toModel() })
+        return Marketplace(plugins: wire.plugins.map { $0.toModel() }, bots: wire.bots.map { $0.toModel() }).localized()
     }
 
     /// Installs a marketplace plugin on a Runner (here, or sealed to that Runner).
     func installPlugin(_ pluginID: String, on runnerID: Device.ID) async throws -> InstalledPlugin {
-        guard !isMock else { return InstalledPlugin(id: pluginID, name: pluginID, description: "", version: "", icon: "", state: .ready, detail: "Ready") }
+        guard !isMock else { return InstalledPlugin(id: pluginID, name: pluginID, description: "", version: "", icon: "", state: .ready, detail: L("Ready")) }
         return try await client.request("plugins.install", ["runner_id": runnerID, "plugin_id": pluginID], as: Wire.PluginInstalled.self).status.toModel()
     }
 
@@ -742,15 +742,15 @@ final class AppStore {
 
     func pluginDetail(_ pluginID: String, on runnerID: Device.ID) async throws -> PluginDetail {
         if isMock {
-            let status = device(runnerID)?.plugins.first { $0.id == pluginID } ?? InstalledPlugin(id: pluginID, name: pluginID, description: "", version: "", icon: "", state: .ready, detail: "Ready")
-            return PluginDetail(status: status, homepage: nil, variables: [.init(name: "GITHUB_TOKEN", description: "A personal access token, instead of signing in.", secret: true, required: false, isSet: false, value: nil)], servers: [.init(name: "github", kind: "http", url: "https://api.githubcopilot.com/mcp/", oauth: true, signedIn: status.state == .ready)], skills: [])
+            let status = device(runnerID)?.plugins.first { $0.id == pluginID } ?? InstalledPlugin(id: pluginID, name: pluginID, description: "", version: "", icon: "", state: .ready, detail: L("Ready"))
+            return PluginDetail(status: status, homepage: nil, variables: [.init(name: "GITHUB_TOKEN", description: L("A personal access token, instead of signing in."), secret: true, required: false, isSet: false, value: nil)], servers: [.init(name: "github", kind: "http", url: "https://api.githubcopilot.com/mcp/", oauth: true, signedIn: status.state == .ready)], skills: [])
         }
         return try await client.request("plugins.detail", ["runner_id": runnerID, "plugin_id": pluginID], as: Wire.PluginDetail.self).toModel()
     }
 
     /// Sets variables on the Runner; a secret goes out in the request and is never read back.
     func setPluginVariables(_ pluginID: String, on runnerID: Device.ID, variables: [String: String]) async throws -> InstalledPlugin {
-        guard !isMock else { return InstalledPlugin(id: pluginID, name: pluginID, description: "", version: "", icon: "", state: .ready, detail: "Ready") }
+        guard !isMock else { return InstalledPlugin(id: pluginID, name: pluginID, description: "", version: "", icon: "", state: .ready, detail: L("Ready")) }
         return try await client.request("plugins.set_variables", ["runner_id": runnerID, "plugin_id": pluginID, "variables": variables], as: Wire.PluginInstalled.self).status.toModel()
     }
 
@@ -858,8 +858,8 @@ final class AppStore {
     func botMemory(_ id: Bot.ID) async throws -> BotMemory {
         if isMock {
             return BotMemory(
-                botID: id, here: true, runner: "This computer", path: "~/.lorca/workspaces/\(id)",
-                text: "- 2026-09-10 · from your chat with the user · the user prefers short replies\n- 2026-09-12 · invoices are reconciled on Mondays\n",
+                botID: id, here: true, runner: L("This computer"), path: "~/.lorca/workspaces/\(id)",
+                text: L("- 2026-09-10 · from your chat with the user · the user prefers short replies\n- 2026-09-12 · invoices are reconciled on Mondays\n"),
                 hash: "mock", lines: 2, bytes: 128, truncated: false, maxLines: 200, maxBytes: 24_000,
                 topics: ["clients.md"], logs: ["2026-09-12", "2026-09-15"])
         }

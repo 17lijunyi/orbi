@@ -20,6 +20,15 @@ final class SettingsWindowController: NSWindowController {
 
         let window = NSWindow(contentViewController: tabController)
         window.title = L("Settings")
+        window.isOpaque = false
+        window.backgroundColor = .clear
+        window.titlebarAppearsTransparent = true
+        tabController.tabView.drawsBackground = false
+        let glass = SpatialGlassView(radius: 24)
+        glass.translatesAutoresizingMaskIntoConstraints = true
+        glass.frame = tabController.view.bounds
+        glass.autoresizingMask = [.width, .height]
+        tabController.view.addSubview(glass, positioned: .below, relativeTo: nil)
         window.styleMask.insert(.closable)
         window.styleMask.remove(.resizable)
         window.setContentSize(NSSize(width: 560, height: 420))
@@ -34,7 +43,7 @@ final class SettingsWindowController: NSWindowController {
 // MARK: - Base
 
 /// A settings page in the main window's content area: section cards and footnotes in one
-/// scrolling column. The window's titlebar carries the page title.
+/// scrolling column. The workspace's glass header carries the page title.
 class SettingsPaneViewController: NSViewController {
     let column = Build.stack([], spacing: 22)
     private let scrollView = NSScrollView()
@@ -59,7 +68,7 @@ class SettingsPaneViewController: NSViewController {
         scrollView.autohidesScrollers = true
         scrollView.translatesAutoresizingMaskIntoConstraints = false
 
-        // The page runs under the titlebar, which gives it AppKit's scroll-edge effect there.
+        // Transparent scrolling keeps the workspace's backdrop visible between the cards.
         container.addSubview(scrollView)
         scrollView.pin(to: container)
 
@@ -205,7 +214,7 @@ final class GeneralSettingsViewController: SettingsPaneViewController {
         }
 
         addFootnote(
-            L("Lorca talks only to the CLI on this computer. Nothing here is synced; each Device keeps its own settings.")
+            L("Orbi talks only to the CLI on this computer. Nothing here is synced; each Device keeps its own settings.")
         )
     }
 

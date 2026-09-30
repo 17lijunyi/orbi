@@ -28,7 +28,7 @@ enum Preferences {
     }
 
     static var showsInspector: Bool {
-        get { defaults.object(forKey: Key.showsInspector) as? Bool ?? true }
+        get { defaults.object(forKey: Key.showsInspector) as? Bool ?? false }
         set { defaults.set(newValue, forKey: Key.showsInspector) }
     }
 

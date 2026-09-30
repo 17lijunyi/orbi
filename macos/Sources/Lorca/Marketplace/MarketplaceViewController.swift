@@ -45,7 +45,7 @@ final class MarketplaceViewController: NSViewController {
     var runner: Device? { runnerID.flatMap(store.device) }
 
     override func loadView() {
-        let container = NSView()
+        let container = SpatialGlassView(radius: 28)
         container.translatesAutoresizingMaskIntoConstraints = false
 
         runnerPopup.target = self
@@ -59,7 +59,7 @@ final class MarketplaceViewController: NSViewController {
         backButton.isHidden = true
         pageHost.translatesAutoresizingMaskIntoConstraints = false
 
-        notice.fillColor = .windowBackgroundColor
+        notice.fillColor = NSColor(calibratedWhite: 0.18, alpha: 0.94)
         notice.borderColor = .separatorColor
         notice.cornerRadius = 10
         notice.shadow = {

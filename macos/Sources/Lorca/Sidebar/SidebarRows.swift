@@ -365,6 +365,7 @@ final class SidebarChatCell: NSTableCellView {
 
     private func applyBackgroundStyle() {
         let emphasized = backgroundStyle == .emphasized
+        title.textColor = .white
         preview.textColor = emphasized ? NSColor.white.withAlphaComponent(0.75) : .secondaryLabelColor
         stamp.textColor = emphasized ? NSColor.white.withAlphaComponent(0.65) : .tertiaryLabelColor
         pin.contentTintColor = emphasized ? NSColor.white.withAlphaComponent(0.7) : .tertiaryLabelColor

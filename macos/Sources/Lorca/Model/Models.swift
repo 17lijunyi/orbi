@@ -122,7 +122,7 @@ struct ProviderCredential: Hashable, Identifiable {
             case .deepseek:
                 [
                     ("deepseek-flash", "V4.1 Flash"),
-                    ("deepseek-v4-pro", "V4 Pro (reasoning)"),
+                    ("deepseek-v4-pro", L("V4 Pro (reasoning)")),
                 ]
             case .anthropic:
                 [
@@ -140,7 +140,7 @@ struct ProviderCredential: Hashable, Identifiable {
                     ("gpt-5.6-terra", "GPT-5.6 Terra"),
                     ("grok-4.6", "Grok 4.6"),
                     ("kimi-k3", "Kimi K3"),
-                    ("big-pickle", "Big Pickle (free)"),
+                    ("big-pickle", L("Big Pickle (free)")),
                 ]
             case .opencodeGo:
                 [

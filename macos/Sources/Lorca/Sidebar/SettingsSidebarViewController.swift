@@ -292,8 +292,12 @@ extension SettingsSidebarViewController: NSOutlineViewDelegate {
         switch (item as? SidebarNode)?.kind {
         case .header: 28
         case .setting: 26
-        default: 32
+        default: 42
         }
+    }
+
+    func outlineView(_ outlineView: NSOutlineView, rowViewForItem item: Any) -> NSTableRowView? {
+        GlassSelectionRowView()
     }
 
     func outlineView(_ outlineView: NSOutlineView, viewFor tableColumn: NSTableColumn?, item: Any)

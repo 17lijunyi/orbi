@@ -24,7 +24,7 @@ class SheetViewController: NSViewController {
     required init?(coder: NSCoder) { fatalError() }
 
     override func loadView() {
-        let container = NSView()
+        let container = SpatialGlassView(radius: 24)
         container.translatesAutoresizingMaskIntoConstraints = false
 
         contentStack.orientation = .vertical

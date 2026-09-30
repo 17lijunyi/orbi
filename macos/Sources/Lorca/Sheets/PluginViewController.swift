@@ -30,8 +30,8 @@ final class PluginViewController: SheetViewController {
         self.bot = bot
         let plugin = runner.plugins.first { $0.id == pluginID }
         super.init(
-            title: plugin?.name ?? pluginID,
-            subtitle: [plugin?.description ?? "", L("Installed on %@.", runner.name)].filter {
+            title: L(plugin?.name ?? pluginID),
+            subtitle: [L(plugin?.description ?? ""), L("Installed on %@.", runner.name)].filter {
                 !$0.isEmpty
             }.joined(separator: " "),
             width: 520
@@ -180,7 +180,7 @@ final class PluginViewController: SheetViewController {
                 field.stringValue = variable.secret ? "" : (variable.value ?? "")
                 field.font = .monospacedSystemFont(ofSize: 11, weight: .regular)
                 field.controlSize = .small
-                field.toolTip = variable.description
+                field.toolTip = L(variable.description)
                 fields.append((variable.name, field))
                 let row = FieldRow(
                     key: variable.name + (variable.required ? " *" : ""), field: field)
@@ -188,7 +188,7 @@ final class PluginViewController: SheetViewController {
             })
 
         skills.isHidden = detail.skills.isEmpty
-        skills.setRows(detail.skills.map { KeyValueRow(key: $0.name, value: $0.description) })
+        skills.setRows(detail.skills.map { KeyValueRow(key: L($0.name), value: L($0.description)) })
         fitSheetToContent()
     }
 

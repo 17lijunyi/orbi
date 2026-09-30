@@ -167,8 +167,8 @@ final class ComposerView: NSView {
     private var stripTopConstraint: NSLayoutConstraint!
     private var stripHeightConstraint: NSLayoutConstraint!
 
-    private let controlSize: CGFloat = 28
-    private let controlInset: CGFloat = 8
+    private let controlSize: CGFloat = 32
+    private let controlInset: CGFloat = 12
     private let controlSpacing: CGFloat = 4
     private let textInset: CGFloat = 8
     private let expandedTextInset: CGFloat = 12
@@ -257,9 +257,8 @@ final class ComposerView: NSView {
 
         field.cornerRadius = (controlSize + controlInset * 2) / 2
         field.borderColor = Theme.composerBorder
-        if #available(macOS 26, *) {
-            let glass = NSGlassEffectView()
-            glass.cornerRadius = field.cornerRadius
+        do {
+            let glass = SpatialGlassView(radius: field.cornerRadius)
             glass.translatesAutoresizingMaskIntoConstraints = false
             field.fillColor = .clear
             field.addSubview(glass)
@@ -270,8 +269,6 @@ final class ComposerView: NSView {
                 glass.bottomAnchor.constraint(equalTo: field.bottomAnchor),
             ])
             self.glass = glass
-        } else {
-            field.fillColor = Theme.composerField
         }
 
         scrollView.documentView = textView
@@ -295,8 +292,8 @@ final class ComposerView: NSView {
 
         NSLayoutConstraint.activate([
             field.topAnchor.constraint(equalTo: topAnchor, constant: 8),
-            field.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 20),
-            field.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -20),
+            field.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 0),
+            field.trailingAnchor.constraint(equalTo: trailingAnchor, constant: 0),
             field.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -14),
 
             strip.leadingAnchor.constraint(equalTo: field.leadingAnchor, constant: expandedTextInset),
