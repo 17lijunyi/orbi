@@ -11,13 +11,16 @@ final class Updater {
     /// Posted on the main thread when a check finishes, however it ended.
     nonisolated static let didFinishCheck = Notification.Name("lorca.updater.didFinishCheck")
 
-    /// A debug build is the dev loop's bundle, rebuilt in place. The menu item and the settings
-    /// rows leave themselves out there.
+    /// Updates are available in release bundles configured with the publisher's feed and key.
+    /// The menu item and settings rows follow the same condition.
     nonisolated static let isEnabled: Bool = {
         #if DEBUG
             return false
         #else
-            return true
+            let feed = Bundle.main.object(forInfoDictionaryKey: "SUFeedURL") as? String ?? ""
+            let key = Bundle.main.object(forInfoDictionaryKey: "SUPublicEDKey") as? String ?? ""
+            return !feed.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                && !key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         #endif
     }()
 

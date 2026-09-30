@@ -212,7 +212,7 @@ final class AboutDeviceSettingsViewController: DevicePaneViewController {
             KeyValueRow(
                 key: L("Relay"),
                 value: store.relayURL.map { url in
-                    if store.relayUpdateRequired { return L("%@ · update Lorca to sync", url) }
+                    if store.relayUpdateRequired { return L("%@ · update Orbi to sync", url) }
                     if store.relayConnected { return url }
                     // Why the last try to connect failed, in the CLI's words.
                     return store.relayError.map { "\(url) · \($0)" } ?? L("%@ · offline", url)

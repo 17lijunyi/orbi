@@ -36,7 +36,7 @@ final class NewBotViewController: SheetViewController {
         self.onCreate = onCreate
         super.init(
             title: L("New Bot"),
-            subtitle: L("A bot runs on one Runner and uses that machine's credentials. Phones and tablets are not Runners."),
+            subtitle: L("A bot runs on the Runner it is assigned to, with your account's credentials and that Runner's plugins."),
             width: 440
         )
     }

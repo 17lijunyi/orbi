@@ -87,19 +87,13 @@ enum Theme {
         dark: { NSColor(calibratedWhite: 0, alpha: 1) }
     )
 
-    static let transcriptBackground = dynamic(
-        light: { NSColor(calibratedWhite: 1, alpha: 1) },
-        dark: { NSColor(calibratedWhite: 0.11, alpha: 1) }
-    )
+    static let transcriptBackground = NSColor.clear
 
-    static var userBubble: NSColor { .controlAccentColor }
+    static var userBubble: NSColor { NSColor.white.withAlphaComponent(0.18) }
 
     /// Accent colors can be light (yellow, graphite); pick legible bubble text.
     static var userBubbleText: NSColor {
-        let accent = NSColor.controlAccentColor.usingColorSpace(.sRGB) ?? .systemBlue
-        let luminance =
-            0.2126 * accent.redComponent + 0.7152 * accent.greenComponent + 0.0722 * accent.blueComponent
-        return luminance > 0.62 ? NSColor.black.withAlphaComponent(0.85) : .white
+        .white
     }
 
     enum Font {

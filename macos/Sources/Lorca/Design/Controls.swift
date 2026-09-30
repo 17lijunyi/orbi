@@ -178,7 +178,7 @@ final class FlippedView: NSView {
 
 /// One-pixel rule that stays crisp on Retina and follows the appearance.
 final class HairlineView: NSView {
-    var color: NSColor = .separatorColor { didSet { needsDisplay = true } }
+    var color: NSColor = .white.withAlphaComponent(0.10) { didSet { needsDisplay = true } }
     private let axis: NSUserInterfaceLayoutOrientation
 
     init(axis: NSUserInterfaceLayoutOrientation = .horizontal) {

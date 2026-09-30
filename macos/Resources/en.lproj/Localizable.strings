@@ -1,1 +1,33 @@
 /* English is the key of every string, so this table is empty. It marks the bundle as holding English. */
+
+"Library" = "Library";
+
+"Your AI team" = "Your AI team";
+
+"Your workspace" = "Your workspace";
+
+"Teammates" = "Teammates";
+
+"%d teammates" = "%d teammates";
+
+"All Teammates" = "All Teammates";
+
+"Recent Chats" = "Recent Chats";
+
+"AI Providers" = "AI Providers";
+
+"Search in Teammates" = "Search in Teammates";
+
+"Filter teammates" = "Filter teammates";
+
+"Make yourself at home" = "Make yourself at home";
+
+"Your team starts here.\nCreate your first teammate with +." = "Your team starts here.\nCreate your first teammate with +.";
+
+"No teammates found" = "No teammates found";
+
+"Message %@…" = "Message %@…";
+
+"Create a teammate to get started" = "Create a teammate to get started";
+
+"Back to Library" = "Back to Library";

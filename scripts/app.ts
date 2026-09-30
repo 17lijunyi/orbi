@@ -10,12 +10,13 @@ export const SOURCES_DIR = join(PACKAGE_DIR, "Sources")
 export const CRATES_DIR = join(ROOT, "crates")
 export const CLI_NAME = "lorca"
 
-export const APP_NAME = "Lorca"
-export const DEBUG_APP_NAME = "Lorca Dev"
+export const APP_NAME = "Orbi"
+const SWIFT_PRODUCT_NAME = "Lorca"
+export const DEBUG_APP_NAME = "Orbi Dev"
 export const BUNDLE_ID = "app.lorca"
 export const DEBUG_BUNDLE_ID = "app.lorca.dev"
-export const APP_ICON_NAME = "Lorca.icns"
-export const DEBUG_APP_ICON_NAME = "Lorca-dev.icns"
+export const APP_ICON_NAME = "Orbi.icns"
+export const DEBUG_APP_ICON_NAME = APP_ICON_NAME
 
 /** The root package.json's "version" is the Mac app's version: Info.plist carries it, and Sparkle
  * compares it. scripts/release-mac.ts bumps it. */
@@ -27,11 +28,11 @@ export function readVersion(): string {
   return version
 }
 
-/** Where the app looks for updates, and the EdDSA public key Sparkle checks them against: the
- * public half of the login keychain's Sparkle key (docs/releasing-mac.md). */
-export const RELEASES_URL = process.env.DOWNLOAD_URL_PREFIX ?? "https://mac-releases.lorca.app/"
-export const FEED_URL = process.env.FEED_URL ?? `${RELEASES_URL}appcast.xml`
-export const SPARKLE_PUBLIC_KEY = "gv9GLMPjH5yMQkZMFXnoNfHOyL8/7KGzl/jzAqlzZZY="
+/** Orbi's update infrastructure is configured by its publisher. The EdDSA public key is the
+ * public half of their login keychain's Sparkle key (docs/releasing-mac.md). */
+export const RELEASES_URL = process.env.DOWNLOAD_URL_PREFIX?.trim() ?? ""
+export const FEED_URL = process.env.FEED_URL?.trim() ?? ""
+export const SPARKLE_PUBLIC_KEY = process.env.SPARKLE_PUBLIC_KEY?.trim() ?? ""
 
 export type Config = "debug" | "release"
 
@@ -71,6 +72,15 @@ export function log(message: string) {
 
 function infoPlist(version: string, config: Config) {
   const name = appName(config)
+  const xml = (value: string) => value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")
+  const updater = config === "release" && FEED_URL && SPARKLE_PUBLIC_KEY
+    ? `	<key>SUFeedURL</key>
+	<string>${xml(FEED_URL)}</string>
+	<key>SUPublicEDKey</key>
+	<string>${xml(SPARKLE_PUBLIC_KEY)}</string>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>\n`
+    : ""
   return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -107,22 +117,16 @@ function infoPlist(version: string, config: Config) {
 	<key>NSHighResolutionCapable</key>
 	<true/>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Lorca listens while you dictate a message.</string>
+	<string>${APP_NAME} listens while you dictate a message.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>Lorca turns what you say into the message text.</string>
+	<string>${APP_NAME} turns what you say into the message text.</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
 	<key>NSSupportsAutomaticTermination</key>
 	<false/>
 	<key>NSSupportsSuddenTermination</key>
 	<false/>
-	<key>SUFeedURL</key>
-	<string>${FEED_URL}</string>
-	<key>SUPublicEDKey</key>
-	<string>${SPARKLE_PUBLIC_KEY}</string>
-	<key>SUEnableAutomaticChecks</key>
-	<true/>
-</dict>
+${updater}</dict>
 </plist>
 `
 }
@@ -209,10 +213,41 @@ export async function buildMarkdown(config: Config): Promise<{ ok: boolean }> {
     }
   }
   await rm(MARKDOWN_XCFRAMEWORK, { recursive: true, force: true })
+  const developer = await run(["xcode-select", "-p"], { capture: true })
+  // A host-only macOS static library needs no Xcode project. SwiftPM accepts this standard
+  // XCFramework layout when the Mac has Apple's Command Line Tools and SDK installed.
+  if (developer.stdout.trim().endsWith("/CommandLineTools")) {
+    const library = join(ROOT, "target", config, "liblorca_markdown.a")
+    const result = await run(["xcrun", "lipo", "-archs", library], { capture: true })
+    const architectures = result.stdout.trim().split(/\s+/)
+    if (result.exitCode !== 0 || architectures.some((arch) => !["arm64", "x86_64"].includes(arch))) {
+      log(color.red(result.stderr || "Cannot determine the Markdown library architecture"))
+      return { ok: false }
+    }
+    const identifier = `macos-${architectures.join("_")}`
+    const slice = join(MARKDOWN_XCFRAMEWORK, identifier)
+    await mkdir(slice, { recursive: true })
+    await cp(library, join(slice, "liblorca_markdown.a"))
+    await cp(include, join(slice, "Headers"), { recursive: true })
+    await writeFile(join(MARKDOWN_XCFRAMEWORK, "Info.plist"), `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>CFBundlePackageType</key><string>XFWK</string>
+<key>XCFrameworkFormatVersion</key><string>1.0</string>
+<key>AvailableLibraries</key><array><dict>
+<key>LibraryIdentifier</key><string>${identifier}</string>
+<key>LibraryPath</key><string>liblorca_markdown.a</string>
+<key>HeadersPath</key><string>Headers</string>
+<key>SupportedArchitectures</key><array>${architectures.map((arch) => `<string>${arch}</string>`).join("")}</array>
+<key>SupportedPlatform</key><string>macos</string>
+</dict></array></dict></plist>\n`)
+    return { ok: true }
+  }
   const framework = await run(
     ["xcodebuild", "-create-xcframework", "-library", join(ROOT, "target", config, "liblorca_markdown.a"), "-headers", include, "-output", MARKDOWN_XCFRAMEWORK],
     { cwd: ROOT, capture: true },
   )
+  if (framework.exitCode !== 0) log(color.red(framework.stderr))
   return { ok: framework.exitCode === 0 }
 }
 
@@ -325,7 +360,7 @@ export async function buildApp(config: Config, options: BuildOptions = {}): Prom
   }
 
   const binDir = await run(["swift", "build", "-c", config, "--show-bin-path"], { capture: true })
-  const source = join(binDir.stdout.trim(), APP_NAME)
+  const source = join(binDir.stdout.trim(), SWIFT_PRODUCT_NAME)
 
   const bundle = bundlePath(config)
   const macos = join(bundle, "Contents", "MacOS")
@@ -355,8 +390,7 @@ export async function buildApp(config: Config, options: BuildOptions = {}): Prom
   }
   await chmod(destination, 0o755)
 
-  // The app launches this binary as `lorca serve`. It lives under Resources/bin: on a
-  // case-insensitive volume, MacOS/lorca would be the same file as MacOS/Lorca.
+  // The app launches the account service as `lorca serve` from Resources/bin.
   const cliBinDir = join(bundle, "Contents", "Resources", "bin")
   await mkdir(cliBinDir, { recursive: true })
   const cliDestination = join(cliBinDir, CLI_NAME)

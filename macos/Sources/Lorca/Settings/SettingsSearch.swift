@@ -60,7 +60,7 @@ struct SettingsEntry: Hashable {
     }
 
     static func plugin(_ plugin: InstalledPlugin) -> SettingsEntry {
-        SettingsEntry(.plugins, plugin.name, keywords: [plugin.description, L("plugin mcp marketplace")])
+        SettingsEntry(.plugins, L(plugin.name), keywords: [L(plugin.description), L("plugin mcp marketplace")])
     }
 
     static func provider(_ kind: ProviderCredential.Kind) -> SettingsEntry {

@@ -38,7 +38,7 @@ final class SectionView: NSView {
             headerLeading.constant = 4
             cardTop.constant = 6
             card.borderColor = Theme.botBubbleBorder
-            setCornerRadius(9)
+            setCornerRadius(16)
         case .heading:
             header.stringValue = title
             header.font = .systemFont(ofSize: 13, weight: .bold)
@@ -46,8 +46,8 @@ final class SectionView: NSView {
             headerLeading.constant = 12
             cardTop.constant = 9
             // System Settings' cards are a fill alone.
-            card.borderColor = nil
-            setCornerRadius(12)
+            card.borderColor = NSColor.white.withAlphaComponent(0.10)
+            setCornerRadius(16)
         }
         for (index, end) in dividerEnds.enumerated() {
             end.constant = index.isMultiple(of: 2) ? dividerInset : -dividerInset
@@ -490,12 +490,12 @@ final class StatusRow: NSView, NSGestureRecognizerDelegate {
         configure(
             symbol: plugin.symbolName,
             image: PluginLogo.tile(for: plugin.id, size: 18),
-            title: plugin.name,
-            subtitle: plugin.description,
-            state: ready ? L("Ready") : plugin.detail,
+            title: L(plugin.name),
+            subtitle: L(plugin.description),
+            state: ready ? L("Ready") : L(plugin.detail),
             stateSymbol: ready ? "checkmark" : "exclamationmark.circle.fill",
             stateColor: ready ? .systemGreen : .systemOrange,
-            stateDetail: ready ? nil : plugin.detail
+            stateDetail: ready ? nil : L(plugin.detail)
         )
     }
 

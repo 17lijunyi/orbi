@@ -11,6 +11,7 @@ final class SidebarViewController: NSViewController {
     /// on the split view item; otherwise they are laid out in this view.
     let searchBar = SidebarSearchBar()
     let footer = SidebarFooterView()
+    private let libraryNavigation = LibraryNavigationView()
 
     private var nodes: [SidebarNode] = []
     /// A chat keeps its node while it is listed, so a row that moves stays the same item to the
@@ -66,18 +67,25 @@ final class SidebarViewController: NSViewController {
 
         let divider = HairlineView()
 
-        container.addSubview(searchBar)
+        libraryNavigation.onLibrary = { [weak self] in self?.onSelect?(nil) }
+        libraryNavigation.onRecent = { [weak self] in
+            guard let self else { return }
+            self.onSelect?(self.store.chats.first.map { .chat($0.id) })
+        }
+        libraryNavigation.onProviders = { [weak self] in self?.onSelect?(.settings(.providers)) }
+        libraryNavigation.onMarketplace = { [weak self] in self?.onOpenMarketplace?() }
+        container.addSubview(libraryNavigation)
         container.addSubview(listHost)
         container.addSubview(divider)
         container.addSubview(footer)
 
         NSLayoutConstraint.activate([
             // The safe area keeps the field clear of the titlebar the sidebar runs under.
-            searchBar.topAnchor.constraint(equalTo: container.safeAreaLayoutGuide.topAnchor),
-            searchBar.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-            searchBar.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            libraryNavigation.topAnchor.constraint(equalTo: container.topAnchor),
+            libraryNavigation.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            libraryNavigation.trailingAnchor.constraint(equalTo: container.trailingAnchor),
 
-            listHost.topAnchor.constraint(equalTo: searchBar.bottomAnchor),
+            listHost.topAnchor.constraint(equalTo: libraryNavigation.bottomAnchor),
             listHost.leadingAnchor.constraint(equalTo: container.leadingAnchor),
             listHost.trailingAnchor.constraint(equalTo: container.trailingAnchor),
             listHost.bottomAnchor.constraint(equalTo: divider.topAnchor),
@@ -255,6 +263,7 @@ final class SidebarViewController: NSViewController {
 
     func setSelection(_ selection: Selection?) {
         self.selection = selection
+        libraryNavigation.setLibrarySelected(selection == nil)
         guard listInstalled else { return }
         let wasApplyingSelection = isApplyingSelection
         isApplyingSelection = true
@@ -370,6 +379,9 @@ extension SidebarViewController: NSOutlineViewDataSource {
 // MARK: - Delegate
 
 extension SidebarViewController: NSOutlineViewDelegate {
+    func outlineView(_ outlineView: NSOutlineView, rowViewForItem item: Any) -> NSTableRowView? {
+        GlassSelectionRowView()
+    }
     func outlineView(_ outlineView: NSOutlineView, heightOfRowByItem item: Any) -> CGFloat {
         54
     }
@@ -454,9 +466,7 @@ extension SidebarViewController: NSMenuDelegate {
 /// is inset by and get AppKit's scroll-edge effect behind them. Earlier systems stack the bars
 /// and the list inside the pane.
 enum SidebarChrome {
-    static var floats: Bool {
-        if #available(macOS 26.0, *) { true } else { false }
-    }
+    static var floats: Bool { false }
 }
 
 // MARK: - Search

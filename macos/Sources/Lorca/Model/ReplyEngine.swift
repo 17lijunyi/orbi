@@ -150,7 +150,7 @@ final class ReplyEngine {
                 .think(lead.id, seconds: 0.5),
                 .say(
                     lead.id,
-                    "I'm queued on the relay — \(host.name) is offline, so this turn runs when that Runner reconnects."
+                    L("%@ is offline. This turn is queued on the relay and runs when the Runner reconnects.", host.name)
                 ),
             ]
         }
@@ -166,7 +166,7 @@ final class ReplyEngine {
                     lead.id,
                     ToolInvocation(
                         name: "list_teammates",
-                        summary: "Listed \(members.count) teammates",
+                        summary: L("Listed %d teammates", members.count),
                         detail: teammateDetail(members),
                         isRunning: false
                     ),
@@ -202,104 +202,58 @@ final class ReplyEngine {
 
     private func handoffReason(for bot: Bot) -> String {
         switch bot.id {
-        case "bot-patch": "Write the change"
-        case "bot-scout": "Pull the context first"
-        case "bot-quill": "Say it in plain words"
-        case "bot-ember": "Check what is deployed"
-        default: "Take the next step"
+        case "bot-patch": L("Write the change")
+        case "bot-scout": L("Pull the context first")
+        case "bot-quill": L("Say it in plain words")
+        case "bot-ember": L("Check what is deployed")
+        default: L("Take the next step")
         }
     }
 
     private func summary(from bot: Bot) -> String {
         [
-            "That matches what I expected from \(bot.name). I'll keep the thread here until you say otherwise.",
-            "\(bot.name) has it. Tell me if you want that turned into a task on another Runner.",
-            "Good — that closes the loop. Anything you want me to push back on?",
+            L("That matches what I expected from %@. I'll keep the thread here until you say otherwise.", bot.name),
+            L("%@ has it. Tell me if you want that turned into a task on another Runner.", bot.name),
+            L("Good — that closes the loop. Anything you want me to push back on?"),
         ].randomElement() ?? ""
     }
 
     private func reply(for bot: Bot, prompt: String) -> String {
         let lowered = prompt.lowercased()
 
-        if lowered.contains("hello") || lowered.contains("hi ") || lowered == "hi" {
-            return "Here. Ready when you are."
+        if lowered.contains("hello") || lowered.contains("hi ") || lowered == "hi" || lowered.contains("你好") || lowered.contains("您好") {
+            return L("Here. Ready when you are.")
         }
 
         let pool: [String]
         switch bot.id {
         case "bot-patch":
             pool = [
-                """
-                Smallest version that works:
-
-                ```rust
-                pub async fn serve(addr: SocketAddr) -> Result<()> {
-                    let listener = TcpListener::bind(addr).await?;
-                    tracing::info!(%addr, "lorca serve");
-                    while let Ok((stream, _)) = listener.accept().await {
-                        tokio::spawn(handle(stream));
-                    }
-                    Ok(())
-                }
-                ```
-
-                One task per connection, and `handle` owns the decrypt step so the accept loop stays dumb.
-                """,
-                """
-                I'd keep this in the CLI rather than the app. The app should stay a renderer — the moment it knows how to decrypt, the key material has two homes and the threat model gets harder to explain.
-                """,
-                """
-                Two options, and they are not close:
-
-                - Put it behind `bootstrap` and let the app render whatever comes back.
-                - Add a new event kind and teach both sides about it.
-
-                The first one is free. Take the first one.
-                """,
+                L("Smallest version that works:\n\n```rust\npub async fn serve(addr: SocketAddr) -> Result<()> {\n    let listener = TcpListener::bind(addr).await?;\n    tracing::info!(%addr, \"lorca serve\");\n    while let Ok((stream, _)) = listener.accept().await {\n        tokio::spawn(handle(stream));\n    }\n    Ok(())\n}\n```\n\nOne task per connection, and `handle` owns the decrypt step so the accept loop stays dumb."),
+                L("I'd keep this in the CLI rather than the app. The app should stay a renderer — the moment it knows how to decrypt, the key material has two homes and the threat model gets harder to explain."),
+                L("Two options, and they are not close:\n\n- Put it behind `bootstrap` and let the app render whatever comes back.\n- Add a new event kind and teach both sides about it.\n\nThe first one is free. Take the first one."),
             ]
         case "bot-scout":
             pool = [
-                """
-                Checked the tree. The only place that touches this is the `blobs` handler and one test fixture, so the change is contained. Nothing in `web/` reads it.
-                """,
-                """
-                Relevant prior art: Happy wraps the account DEK to each machine public key at pairing time, which is what `ARCHITECTURE.md` already describes. Following it means recovery is the backup phrase and nothing else, which is the property you want.
-                """,
-                """
-                I found two answers and they disagree. The schema says `seq` is unique per identity; the handler treats it as unique per `(identity, kind)`. Worth deciding before the first migration lands, because it is painful afterwards.
-                """,
+                L("Checked the tree. The only place that touches this is the `blobs` handler and one test fixture, so the change is contained. Nothing in `web/` reads it."),
+                L("Relevant prior art: Happy wraps the account DEK to each machine public key at pairing time, which is what `ARCHITECTURE.md` already describes. Following it means recovery is the backup phrase and nothing else, which is the property you want."),
+                L("I found two answers and they disagree. The schema says `seq` is unique per identity; the handler treats it as unique per `(identity, kind)`. Worth deciding before the first migration lands, because it is painful afterwards."),
             ]
         case "bot-quill":
             pool = [
-                """
-                Draft: "Your bots run on computers you own. Assign one to a Runner, and it works there with your account's encrypted provider credentials. The relay carries ciphertext and nothing else."
-
-                Three sentences, no adjectives doing work they haven't earned.
-                """,
-                """
-                I'd cut "seamlessly" and "powerful". They are the words people skim. What is left says the same thing and is shorter.
-                """,
+                L("Draft: \"Your bots run on computers you own. Assign one to a Runner, and it works there with your account's encrypted provider credentials. The relay carries ciphertext and nothing else.\"\n\nThree sentences, no adjectives doing work they haven't earned."),
+                L("I'd cut \"seamlessly\" and \"powerful\". They are the words people skim. What is left says the same thing and is shorter."),
             ]
         case "bot-ember":
             pool = [
-                "Blast radius first: this touches the Worker only, no D1 migration, so a bad deploy is a rollback and not a restore.",
-                "Deployed. The relay is answering the challenge endpoint in about 40ms from here, which is the number to watch when we add the blob listing.",
+                L("Blast radius first: this touches the Worker only, no D1 migration, so a bad deploy is a rollback and not a restore."),
+                L("Deployed. The relay is answering the challenge endpoint in about 40ms from here, which is the number to watch when we add the blob listing."),
             ]
         default:
             pool = [
-                """
-                Here's how I'd sequence it:
-
-                - Get the local websocket answering `bootstrap` with the same shape this app already renders.
-                - Then swap the mock store for those events, one screen at a time.
-                - Pairing last, because it is the only part that needs two machines to test.
-
-                Want me to hand the first piece to Developer?
-                """,
-                """
-                The constraint that decides this is **a bot runs on its assigned Runner**. Its files and plugins are there, so the answer is a job envelope, not a call from here.
-                """,
-                "Short answer: yes. Longer answer: yes, but not until pairing works on two machines, because that is where this gets interesting.",
+                L("Here's how I'd sequence it:\n\n- Get the local websocket answering `bootstrap` with the same shape this app already renders.\n- Then swap the mock store for those events, one screen at a time.\n- Pairing last, because it is the only part that needs two machines to test.\n\nWant me to hand the first piece to Developer?"),
+                L("The constraint that decides this is **a bot runs on its assigned Runner**. Its files and plugins are there, so the answer is a job envelope, not a call from here."),
+                L("Short answer: yes. Longer answer: yes, but not until pairing works on two machines, because that is where this gets interesting."),
             ]
         }
 

@@ -52,7 +52,7 @@ enum MainMenu {
     private static func appMenu() -> NSMenu {
         let menu = NSMenu()
         let suffix = AppInfo.isDevelopment ? " Dev" : ""
-        add(menu, L("About Lorca") + suffix, #selector(NSApplication.orderFrontStandardAboutPanel(_:)))
+        add(menu, L("About Orbi") + suffix, #selector(NSApplication.orderFrontStandardAboutPanel(_:)))
         if Updater.isEnabled {
             add(menu, L("Check for Updates…"), #selector(AppDelegate.checkForUpdates(_:)))
         }
@@ -67,13 +67,13 @@ enum MainMenu {
         NSApp.servicesMenu = services
 
         menu.addItem(.separator())
-        add(menu, L("Hide Lorca") + suffix, #selector(NSApplication.hide(_:)), "h")
+        add(menu, L("Hide Orbi") + suffix, #selector(NSApplication.hide(_:)), "h")
         add(
             menu, L("Hide Others"), #selector(NSApplication.hideOtherApplications(_:)), "h",
             modifiers: [.command, .option])
         add(menu, L("Show All"), #selector(NSApplication.unhideAllApplications(_:)))
         menu.addItem(.separator())
-        add(menu, L("Quit Lorca") + suffix, #selector(NSApplication.terminate(_:)), "q")
+        add(menu, L("Quit Orbi") + suffix, #selector(NSApplication.terminate(_:)), "q")
         return menu
     }
 
@@ -175,7 +175,7 @@ enum MainMenu {
 
     private static func helpMenu() -> NSMenu {
         let menu = NSMenu()
-        add(menu, L("Lorca Help"), #selector(AppDelegate.showHelp(_:)), "?")
+        add(menu, L("Orbi Help"), #selector(AppDelegate.showHelp(_:)), "?")
         add(menu, L("Architecture Notes"), #selector(AppDelegate.showArchitecture(_:)))
         return menu
     }

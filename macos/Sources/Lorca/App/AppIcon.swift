@@ -4,7 +4,7 @@ import AppKit
 enum AppIcon {
     static func make(size: CGFloat = 512) -> NSImage {
         let iconFile = Bundle.main.object(forInfoDictionaryKey: "CFBundleIconFile") as? String
-            ?? "Lorca.icns"
+            ?? "Orbi.icns"
         let resource = iconFile as NSString
         guard let url = Bundle.main.url(
             forResource: resource.deletingPathExtension,

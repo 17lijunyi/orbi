@@ -15,7 +15,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         StartupTrace.mark("did finish launching")
-        NSApp.appearance = nil
+        NSApp.appearance = NSAppearance(named: .darkAqua)
         NSApp.mainMenu = MainMenu.build()
         StartupTrace.mark("main menu built")
         updateDockBadge()
@@ -263,7 +263,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         guard store.relayUpdateRequired, !saidUpdateRequired, let window = mainWindowController?.window, window.isVisible else { return }
         saidUpdateRequired = true
         let alert = NSAlert()
-        alert.messageText = L("Update Lorca to keep syncing")
+        alert.messageText = L("Update Orbi to keep syncing")
         alert.informativeText = L("The relay no longer works with this version. Chats on this Mac stay as they are, and nothing syncs with your other Devices until you update.")
         if Updater.isEnabled {
             alert.addButton(withTitle: L("Check for Updates…"))
@@ -303,7 +303,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
 
     @objc func showHelp(_ sender: Any?) {
         presentNote(
-            title: L("Lorca runs on Devices you own"),
+            title: L("Orbi runs on Devices you own"),
             body: L(
                 "Every bot is assigned to a Runner: a Device running macOS, Linux, or Windows. That machine's CLI runs the turn with your account's provider credentials, so a bot on an offline Runner waits until it reconnects. Phones and tablets pair as Devices but never run bots.\n\nThe app talks only to the local CLI on 127.0.0.1:%@. Start it with `lorca serve`; the CLI holds your keys and provider credentials, which reach your other Devices encrypted.",
                 String(Preferences.cliPort))

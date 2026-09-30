@@ -171,33 +171,10 @@ final class CommandPalette: NSObject {
         panel.contentView = Self.backdrop(holding: content)
     }
 
-    /// Liquid Glass where AppKit has it, else the menu material, with the panel's corners.
+    /// The palette shares the workspace's backdrop material and rounded outline.
     private static func backdrop(holding content: NSView) -> NSView {
-        let radius: CGFloat = 18
-        if #available(macOS 26.0, *) {
-            let glass = NSGlassEffectView()
-            glass.cornerRadius = radius
-            glass.contentView = content
-            // The window cuts its shadow from what it draws, and glass alone counts as its whole
-            // rectangle: a clipping layer gives the panel, and so the shadow, the glass's corners.
-            let clip = NSView()
-            clip.wantsLayer = true
-            clip.layer?.cornerRadius = radius
-            clip.layer?.cornerCurve = .continuous
-            clip.layer?.masksToBounds = true
-            glass.translatesAutoresizingMaskIntoConstraints = false
-            clip.addSubview(glass)
-            glass.pin(to: clip)
-            return clip
-        }
-        let effect = NSVisualEffectView()
-        effect.material = .menu
-        effect.blendingMode = .behindWindow
-        effect.state = .active
-        effect.wantsLayer = true
-        effect.layer?.cornerRadius = radius
-        effect.layer?.cornerCurve = .continuous
-        effect.layer?.masksToBounds = true
+        let effect = SpatialGlassView(radius: 24)
+        effect.translatesAutoresizingMaskIntoConstraints = true
         content.translatesAutoresizingMaskIntoConstraints = false
         effect.addSubview(content)
         content.pin(to: effect)

@@ -16,8 +16,8 @@ final class Dictation {
 
         var errorDescription: String? {
             switch self {
-            case .speechDenied: L("Speech recognition is turned off for Lorca.")
-            case .microphoneDenied: L("Lorca cannot use the microphone.")
+            case .speechDenied: L("Speech recognition is turned off for Orbi.")
+            case .microphoneDenied: L("Orbi cannot use the microphone.")
             case .unavailable: L("Speech recognition is not available for this language right now.")
             case let .engine(error): error.localizedDescription
             }

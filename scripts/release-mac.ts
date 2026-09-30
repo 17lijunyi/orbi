@@ -24,6 +24,7 @@ import {
   readVersion,
   RELEASES_URL,
   ROOT,
+  SPARKLE_PUBLIC_KEY,
   VERSION_FIELD,
 } from "./app.ts"
 import { extractReleaseNotes } from "./changelog.ts"
@@ -46,7 +47,11 @@ if (positional.length > 1) die("expected at most one version")
 const NOTARY_PROFILE = process.env.NOTARY_PROFILE ?? "NOTARY"
 // A partial name matches while the keychain holds one Developer ID Application certificate.
 const SIGN_IDENTITY = process.env.SIGN_IDENTITY ?? "Developer ID Application"
-const R2_DEST = `${process.env.R2_REMOTE ?? "r2"}:${process.env.R2_BUCKET ?? "lorca-mac-releases"}`
+const R2_BUCKET = process.env.R2_BUCKET?.trim() ?? ""
+const R2_DEST = `${process.env.R2_REMOTE ?? "r2"}:${R2_BUCKET}`
+if (!local && (!R2_BUCKET || !RELEASES_URL || !FEED_URL || !SPARKLE_PUBLIC_KEY)) {
+  die("publishing requires R2_BUCKET, DOWNLOAD_URL_PREFIX, FEED_URL, and SPARKLE_PUBLIC_KEY for Orbi")
+}
 // A bucket-scoped R2 token cannot create buckets, which rclone otherwise checks before an upload.
 const RCLONE_FLAGS = ["--s3-no-check-bucket"]
 // How many earlier archives generate_appcast builds deltas against.

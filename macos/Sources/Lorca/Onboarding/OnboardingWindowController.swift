@@ -23,7 +23,8 @@ final class OnboardingWindowController: NSWindowController, NSWindowDelegate {
         window.titleVisibility = .hidden
         window.isMovableByWindowBackground = true
         window.contentViewController = controller
-        window.backgroundColor = .windowBackgroundColor
+        window.isOpaque = false
+        window.backgroundColor = .clear
         super.init(window: window)
         window.delegate = self
     }
@@ -49,7 +50,7 @@ final class OnboardingViewController: NSViewController {
 
     private let store = AppStore.shared
     private let onFinish: () -> Void
-    private let container = NSView()
+    private let container = SpatialGlassView(radius: 28)
     private var step: Step = .welcome
     private var savedPhrase = false
     private var phrase: [String] = []
@@ -449,7 +450,7 @@ final class OnboardingViewController: NSViewController {
             font: .systemFont(ofSize: 12.5), color: .secondaryLabelColor, lines: 0, alignment: .center
         )
 
-        let open = primaryButton(L("Open Lorca"), action: #selector(finish))
+        let open = primaryButton(L("Open Orbi"), action: #selector(finish))
 
         let column = Build.stack([icon, title, subtitle, open], spacing: 14)
         column.alignment = .centerX

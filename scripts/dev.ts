@@ -32,8 +32,8 @@ async function lorcaPids(): Promise<number[]> {
     .split("\n")
     .map((line) => Number(line.trim()))
     .filter((pid) => Number.isInteger(pid) && pid > 0)
-  // Only the development Mac bundle belongs to this loop. The production app and the phone
-  // app may both have an executable named Lorca and stay running beside it.
+  // Only the development Mac bundle belongs to this loop. The production app can have
+  // the same executable name and stay running beside it.
   const mac: number[] = []
   const developmentExecutable = `${appName(CONFIG)}.app/Contents/MacOS/${APP_NAME}`
   for (const pid of pids) {
@@ -53,7 +53,7 @@ function killPid(pid: number, signal: NodeJS.Signals) {
   }
 }
 
-/** Quit every Lorca Dev process, not only the pid this script spawned last. */
+/** Quit every Orbi Dev process, not only the pid this script spawned last. */
 async function stopApp() {
   const current = app
   app = null
@@ -69,7 +69,7 @@ async function stopApp() {
       return
     }
     if (attempt === 10) {
-      log(color.yellow(`Lorca still running (${pids.join(", ")}) — sending SIGKILL`))
+      log(color.yellow(`${appName(CONFIG)} still running (${pids.join(", ")}) — sending SIGKILL`))
       for (const pid of pids) killPid(pid, "SIGKILL")
     }
     await Bun.sleep(50)
@@ -77,7 +77,7 @@ async function stopApp() {
 
   pids = await lorcaPids()
   if (pids.length > 0) {
-    log(color.red(`could not stop Lorca pids ${pids.join(", ")}`))
+    log(color.red(`could not stop ${appName(CONFIG)} pids ${pids.join(", ")}`))
   }
 }
 

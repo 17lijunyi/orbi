@@ -6,3 +6,4 @@ temp/
 target/
 .env
 .env.local
+output/

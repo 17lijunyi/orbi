@@ -20,7 +20,7 @@ final class AutoReviewSettingsViewController: SettingsPaneViewController {
         rules.setHeaderAccessory(add)
         addSection(check)
         addSection(rules)
-        addFootnote(L("Read-only commands and commands inside Lorca's own folders run at once. Auto-review checks effectful plugin actions and every other shell command before they run: a small, fast model on the bot's provider applies your rules and latest request, so safe work normally runs automatically and risky work asks. Off, every such action asks. Write one short, natural-language rule for each action; \"Ask first\" takes priority if rules conflict. Built-in safety checks always apply."))
+        addFootnote(L("Read-only commands and commands inside Orbi's own folders run at once. Auto-review checks effectful plugin actions and every other shell command before they run: a small, fast model on the bot's provider applies your rules and latest request, so safe work normally runs automatically and risky work asks. Off, every such action asks. Write one short, natural-language rule for each action; \"Ask first\" takes priority if rules conflict. Built-in safety checks always apply."))
         store.observe(self) { [weak self] event in
             switch event {
             case .rosterChanged, .snapshotReplaced: self?.render()
@@ -33,7 +33,7 @@ final class AutoReviewSettingsViewController: SettingsPaneViewController {
     private func render() {
         let review = store.autoReview
         toggle.state = review.isEnabled ? .on : .off
-        let description = NoteRow(text: L("Lorca checks each action before it runs and asks you first when needed. Add rules to customize what bots can do automatically."))
+        let description = NoteRow(text: L("Orbi checks each action before it runs and asks you first when needed. Add rules to customize what bots can do automatically."))
         let switchRow = AccessoryRow(key: SettingsEntry.autoReviewSwitch.row, accessory: toggle)
         check.setRows([switchRow, description])
 

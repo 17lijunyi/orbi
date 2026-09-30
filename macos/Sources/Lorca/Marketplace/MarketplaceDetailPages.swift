@@ -26,7 +26,7 @@ final class MarketplacePluginPage: MarketplacePage {
                 default: nil
                 }
             row.configure(
-                symbol: runner.symbolName, title: installed.detail, subtitle: L("Every bot on %@ can use it.", runner.name),
+                symbol: runner.symbolName, title: L(installed.detail), subtitle: L("Every bot on %@ can use it.", runner.name),
                 state: nil, actionTitle: action)
             row.onAction = { [weak self] in self?.market.manage(plugin.id) }
             section.setRows([row])
