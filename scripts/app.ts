@@ -381,6 +381,11 @@ export async function buildApp(config: Config, options: BuildOptions = {}): Prom
   const iconName = appIconName(config)
   await cp(join(RESOURCES_DIR, iconName), join(bundle, "Contents", "Resources", iconName))
 
+  // Transparent plush artwork supplies the bot picker and every bot-avatar surface.
+  const plushTarget = join(bundle, "Contents", "Resources", "PlushAvatars")
+  await rm(plushTarget, { recursive: true, force: true })
+  await cp(join(RESOURCES_DIR, "PlushAvatars"), plushTarget, { recursive: true })
+
   // Unlink before writing: macOS refuses to overwrite a running executable in place.
   const destination = join(macos, APP_NAME)
   await rm(destination, { force: true })

@@ -1,50 +1,48 @@
 import AppKit
 
-/// A real backdrop material: moving the window changes the desktop visible through it.
-/// The system supplies an opaque material when Reduce Transparency is enabled.
-final class SpatialGlassView: NSVisualEffectView {
+/// Rounded floating surfaces share the locally selected window background.
+/// Their opaque fill keeps the chosen colors consistent over any desktop wallpaper.
+final class SpatialGlassView: NSView {
+    private var gradient: NSGradient?
+
     init(radius: CGFloat = 28) {
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
-        material = .hudWindow
-        blendingMode = .behindWindow
-        state = .active
         wantsLayer = true
         layer?.cornerRadius = radius
         layer?.cornerCurve = .continuous
         layer?.masksToBounds = true
         layer?.borderWidth = 1
-        layer?.borderColor = NSColor.white.withAlphaComponent(0.23).cgColor
-        let tint = SpatialTintView()
-        tint.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(tint)
-        NSLayoutConstraint.activate([
-            tint.leadingAnchor.constraint(equalTo: leadingAnchor),
-            tint.trailingAnchor.constraint(equalTo: trailingAnchor),
-            tint.topAnchor.constraint(equalTo: topAnchor),
-            tint.bottomAnchor.constraint(equalTo: bottomAnchor),
-        ])
+        refreshBackground()
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(refreshBackground), name: WindowBackground.didChange, object: nil)
     }
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError() }
+
+    override var allowsVibrancy: Bool { false }
+
+    @objc private func refreshBackground() {
+        gradient = NSGradient(colors: WindowBackground.current.colors, atLocations: [0, 0.52, 1], colorSpace: .sRGB)
+        layer?.borderColor = (WindowBackground.current.isLight
+            ? NSColor.black.withAlphaComponent(0.12)
+            : NSColor.white.withAlphaComponent(0.23)).cgColor
+        needsDisplay = true
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        // CSS 135deg runs from upper left to lower right; AppKit's Y axis points up.
+        gradient?.draw(in: bounds, angle: -45)
+    }
 
     override func mouseDown(with event: NSEvent) {
         window?.performDrag(with: event)
     }
 }
 
-private final class SpatialTintView: NSView {
-    override var allowsVibrancy: Bool { false }
-    override func hitTest(_ point: NSPoint) -> NSView? { nil }
-    override func draw(_ dirtyRect: NSRect) {
-        NSColor(calibratedRed: 0.12, green: 0.11, blue: 0.095, alpha: 0.60).setFill()
-        bounds.fill()
-    }
-}
-
 final class SpatialSplitView: NSSplitView {
-    override var dividerColor: NSColor { .white.withAlphaComponent(0.055) }
+    override var dividerColor: NSColor { Theme.surfaceRule }
 }
 
 /// Icon controls on the detached rail and on the window's glass header.
@@ -56,7 +54,9 @@ final class SpatialButton: NSButton {
 
     init(_ symbol: String, label: String, size: CGFloat = 19) {
         super.init(frame: .zero)
-        image = Glyph.symbol(symbol, pointSize: size, weight: .regular, color: .white)
+        image = NSImage(systemSymbolName: symbol, accessibilityDescription: label)
+        symbolConfiguration = NSImage.SymbolConfiguration(pointSize: size, weight: .regular)
+        contentTintColor = .labelColor
         imagePosition = .imageOnly
         title = ""
         toolTip = label
@@ -85,7 +85,7 @@ final class SpatialButton: NSButton {
 
     override func draw(_ dirtyRect: NSRect) {
         if selected || hovered || isHighlighted {
-            NSColor.white.withAlphaComponent(selected ? 0.24 : 0.12).setFill()
+            Theme.surfaceInk.withAlphaComponent(selected ? 0.20 : 0.10).setFill()
             NSBezierPath(roundedRect: bounds.insetBy(dx: 2, dy: 2), xRadius: 22, yRadius: 22).fill()
         }
         super.draw(dirtyRect)

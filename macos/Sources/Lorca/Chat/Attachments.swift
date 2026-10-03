@@ -89,6 +89,7 @@ final class AttachmentTile: NSView {
     private let name = Build.label("", font: .systemFont(ofSize: 12.5, weight: .medium))
     private let detail = Build.label("", font: Theme.Font.caption)
     private var url: URL?
+    private var placeholderFill: NSColor?
 
     override var isFlipped: Bool { true }
 
@@ -115,18 +116,18 @@ final class AttachmentTile: NSView {
         self.url = url
         toolTip = url == nil ? L("%@ · fetching…", attachment.name) : attachment.name
         let foreground: NSColor = onUserBubble ? Theme.userBubbleText : .labelColor
-        let fill = onUserBubble ? NSColor.white.withAlphaComponent(0.16) : NSColor.labelColor.withAlphaComponent(0.06)
+        let fill = onUserBubble ? Theme.surfaceInk.withAlphaComponent(0.16) : NSColor.labelColor.withAlphaComponent(0.06)
         if attachment.isImage {
             card.isHidden = true
             image.isHidden = false
             image.image = url.flatMap { Thumbnails.image(at: $0, maxPixels: Int(AttachmentLayout.imageMax * 2)) }
             // A quiet box until the bytes are here.
-            layer?.backgroundColor = image.image == nil ? fill.cgColor : nil
+            placeholderFill = image.image == nil ? fill : nil
         } else {
             card.isHidden = false
             image.isHidden = true
             image.image = nil
-            layer?.backgroundColor = nil
+            placeholderFill = nil
             card.fillColor = fill
             icon.image = Glyph.symbol("doc.fill", pointSize: 18, color: foreground)
             name.stringValue = attachment.name
@@ -134,7 +135,19 @@ final class AttachmentTile: NSView {
             detail.stringValue = Attachment.sizeText(attachment.size)
             detail.textColor = foreground.withAlphaComponent(0.7)
         }
+        refreshPlaceholder()
         setAccessibilityLabel(attachment.name)
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        refreshPlaceholder()
+    }
+
+    private func refreshPlaceholder() {
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            layer?.backgroundColor = placeholderFill?.cgColor
+        }
     }
 
     override func layout() {

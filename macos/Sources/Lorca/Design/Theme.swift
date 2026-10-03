@@ -89,12 +89,19 @@ enum Theme {
 
     static let transcriptBackground = NSColor.clear
 
-    static var userBubble: NSColor { NSColor.white.withAlphaComponent(0.18) }
+    static let surfaceInk = dynamic(light: { .black }, dark: { .white })
 
-    /// Accent colors can be light (yellow, graphite); pick legible bubble text.
-    static var userBubbleText: NSColor {
-        .white
-    }
+    static let surfaceRule = dynamic(
+        light: { NSColor.black.withAlphaComponent(0.10) },
+        dark: { NSColor.white.withAlphaComponent(0.10) }
+    )
+
+    static let userBubble = dynamic(
+        light: { NSColor.black.withAlphaComponent(0.07) },
+        dark: { NSColor.white.withAlphaComponent(0.18) }
+    )
+
+    static let userBubbleText = dynamic(light: { .black }, dark: { .white })
 
     enum Font {
         static var message: NSFont { .systemFont(ofSize: 13.5) }

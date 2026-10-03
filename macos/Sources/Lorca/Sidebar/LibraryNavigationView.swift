@@ -63,10 +63,10 @@ final class LibraryNavigationButton: NSButton {
     @objc private func pressed() { onPress?() }
     override func draw(_ dirtyRect: NSRect) {
         if selected || isHighlighted {
-            NSColor.white.withAlphaComponent(selected ? 0.20 : 0.10).setFill()
+            Theme.surfaceInk.withAlphaComponent(selected ? 0.20 : 0.10).setFill()
             NSBezierPath(roundedRect: bounds.insetBy(dx: 1, dy: 0), xRadius: 11, yRadius: 11).fill()
         }
-        Glyph.symbol(symbol, pointSize: 16, weight: .regular, color: .white.withAlphaComponent(0.8))?.draw(in: NSRect(x: 13, y: (bounds.height - 18) / 2, width: 18, height: 18))
+        Glyph.symbol(symbol, pointSize: 16, weight: .regular, color: Theme.surfaceInk.withAlphaComponent(0.8))?.draw(in: NSRect(x: 13, y: (bounds.height - 18) / 2, width: 18, height: 18))
         caption.draw(at: NSPoint(x: 45, y: (bounds.height - 16) / 2), withAttributes: [.font: NSFont.systemFont(ofSize: 13, weight: selected ? .medium : .regular), .foregroundColor: NSColor.labelColor])
         if window?.firstResponder === self {
             NSColor.keyboardFocusIndicatorColor.setStroke()
@@ -81,7 +81,7 @@ final class GlassSelectionRowView: NSTableRowView {
     override var interiorBackgroundStyle: NSView.BackgroundStyle { .normal }
     override func drawSelection(in dirtyRect: NSRect) {
         guard isSelected else { return }
-        NSColor.white.withAlphaComponent(0.18).setFill()
+        Theme.surfaceInk.withAlphaComponent(0.18).setFill()
         NSBezierPath(roundedRect: bounds.insetBy(dx: 3, dy: 2), xRadius: 10, yRadius: 10).fill()
     }
 }

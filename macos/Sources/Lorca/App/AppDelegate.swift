@@ -15,7 +15,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         StartupTrace.mark("did finish launching")
-        NSApp.appearance = NSAppearance(named: .darkAqua)
+        AppIcon.apply()
+        WindowBackground.apply()
         NSApp.mainMenu = MainMenu.build()
         StartupTrace.mark("main menu built")
         updateDockBadge()

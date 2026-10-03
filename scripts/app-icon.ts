@@ -2,8 +2,8 @@ import { mkdir } from "node:fs/promises"
 import { join } from "node:path"
 import { ROOT, RESOURCES_DIR, APP_ICON_NAME } from "./app.ts"
 
-// Package the selected full-bleed artwork at every native macOS icon size.
-// sips only resamples it; the source contains the final composition and background.
+// Package the transparent plush planet at every native macOS icon size.
+// sips resamples the complete planet, orbit and satellite while preserving alpha.
 const source = join(RESOURCES_DIR, "Orbi.png")
 const iconset = join(ROOT, "temp", "Orbi.iconset")
 await mkdir(iconset, { recursive: true })
