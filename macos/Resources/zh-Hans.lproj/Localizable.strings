@@ -117,7 +117,6 @@
 "Back to Chats (esc)" = "返回聊天 (esc)";
 
 "Behavior" = "行为";
-"Blue" = "蓝色";
 "Bot" = "智能体";
 "bot runner" = "智能体 bot runner";
 "Bots" = "智能体";
@@ -146,7 +145,6 @@
 "Chef|first bot name" = "幕僚长";
 "Chief of staff. Plans the work and delegates each task to the right teammate, proposing a new one when none fits. Does hands-on work when necessary." = "统筹规划工作，把每项任务交给合适的队友，没有合适的就提议新建一个。必要时亲自动手。";
 "Choose an image for this bot." = "为这个智能体选取一张图像。";
-"Choose Image…" = "选取图像…";
 "CLI not running · start it with: lorca serve" = "命令行服务未运行 · 用此命令启动：lorca serve";
 "CLI on 127.0.0.1:%@" = "命令行服务位于 127.0.0.1:%@";
 "CLI port" = "命令行服务端口";
@@ -154,7 +152,6 @@
 "Close" = "关闭";
 "Close Window" = "关闭窗口";
 "Code" = "代码";
-"Color" = "颜色";
 "Command Palette" = "命令面板";
 "Command Palette…" = "命令面板…";
 "Communication" = "通信";
@@ -195,7 +192,6 @@
 "Credentials belong to your account: your bots use them on every Runner you pair. They sync encrypted with your account key; the relay cannot read them." = "凭证属于你的账户：你的智能体会在你配对的每个运行设备上使用它们。凭证以你的账户密钥加密后同步，中继无法读取。";
 "Credentials belong to your account. They reach your paired Devices encrypted with the account key, so a bot uses them on whichever Runner it is assigned to; the relay stores ciphertext." = "凭证属于你的账户。它们用账户密钥加密后同步到已配对的设备，因此智能体无论分配到哪个运行设备都能使用；中继只存储密文。";
 "Cut" = "剪切";
-"Dark" = "深色";
 "Data" = "数据";
 "Default" = "默认";
 "Default (%@)" = "默认（%@）";
@@ -264,7 +260,6 @@
 "General" = "通用";
 "Give the bot a name." = "请给智能体起个名字。";
 "Go to Chat %d" = "前往聊天 %d";
-"Green" = "绿色";
 "Group · %@ · %@" = "群聊 · %1$@ · %2$@";
 "Group name (optional)" = "群聊名称（可选）";
 "Handed off to %@" = "已转交给 %@";
@@ -276,9 +271,6 @@
 "High" = "高";
 "How this bot should work" = "这个智能体的工作方式";
 "I wrote this phrase down somewhere safe" = "我已将这组短语抄写在安全的地方";
-"Image" = "图像";
-"Images are resized to %d px and shared encrypted, like an attachment." = "图像会被缩放到 %d px，并像附件一样加密共享。";
-"Indigo" = "靛蓝色";
 "Information" = "信息";
 "Inspector" = "检查器";
 "Install %@ on %@, for every bot there" = "把 %1$@ 安装到 %2$@，供那里的每个智能体使用";
@@ -306,7 +298,6 @@
 "Last seen just now" = "刚刚在线";
 "Later" = "稍后";
 "Leave empty to use %@’s API." = "留空以使用 %@ 的接口。";
-"Light" = "浅色";
 "link" = "链接";
 "Loading the marketplace…" = "正在载入市场…";
 "Loading…" = "正在载入…";
@@ -399,7 +390,6 @@
 "Open Orbi" = "打开 Orbi";
 "Open System Settings" = "打开系统设置";
 "Optional" = "可选";
-"Orange" = "橙色";
 "OS" = "操作系统";
 "Overwrite with mine" = "用我的版本覆盖";
 "Pair" = "配对";
@@ -428,11 +418,9 @@
 "Paused while you were away" = "在你离开期间已暂停";
 "Photo" = "照片";
 "Pick a conversation in the sidebar, or start a new one." = "在边栏中选择一个对话，或者开始新的对话。";
-"Pick a symbol and a color, or use an image of your own. Paired Devices see the same look." = "选取一个符号和一种颜色，或使用你自己的图像。已配对的设备会看到相同的外观。";
 "Pick up to six bots to talk with together." = "最多选取六个智能体一起聊天。";
 "Pin" = "置顶";
 "Pin Chat" = "置顶聊天";
-"Pink" = "粉色";
 "Pinned" = "已置顶";
 "Plan this and delegate the parts" = "制定计划并分派各部分";
 "plugin mcp marketplace" = "插件 插件市场 plugin mcp marketplace";
@@ -444,14 +432,12 @@
 "Profile" = "资料";
 "Provider" = "服务商";
 "Providers" = "服务商";
-"Purple" = "紫色";
 "Quit Orbi" = "退出 Orbi";
 "Re-deriving keys and unwrapping the account key…" = "正在重新派生密钥并解开账户密钥…";
 "Read-only commands and commands inside Orbi's own folders run at once. Auto-review checks effectful plugin actions and every other shell command before they run: a small, fast model on the bot's provider applies your rules and latest request, so safe work normally runs automatically and risky work asks. Off, every such action asks. Write one short, natural-language rule for each action; \"Ask first\" takes priority if rules conflict. Built-in safety checks always apply." = "只读命令和在 Orbi 自己文件夹内的命令会直接运行。自动审查会在会产生影响的插件操作和其他 shell 命令运行前检查它们：智能体所用服务商的一款小型快速模型根据你的规则和最近请求作出判断，因此安全的工作通常会自动运行，有风险的会询问。关闭后，每个这样的操作都会询问。为每种操作写一条简短的自然语言规则；规则冲突时以“先询问”为准。内置安全检查始终生效。";
 "Reading a file" = "正在读取文件";
 "Reading the web" = "正在阅读网页";
 "Ready" = "就绪";
-"Red" = "红色";
 "Redo" = "重做";
 "Relay" = "中继";
 "Relay URL" = "中继 URL";
@@ -460,7 +446,6 @@
 "Remove" = "移除";
 "Remove %@ from %@?" = "要从 %2$@ 移除 %1$@ 吗？";
 "Remove from chat" = "从聊天中移除";
-"Remove Image" = "移除图像";
 "Remove…" = "移除…";
 "Rename" = "重命名";
 "Rename Chat" = "重命名聊天";
@@ -574,11 +559,9 @@
 "Stopped" = "已停止";
 "Subscription" = "订阅";
 "Support" = "支持";
-"Symbol" = "符号";
 "System" = "跟随系统";
 "Taking a note" = "正在记笔记";
 "Task" = "任务";
-"Teal" = "蓝绿色";
 "That file could not be read as an image." = "无法将该文件读取为图像。";
 "The app talks only to the local CLI over a localhost websocket. The CLI holds the keys, runs the agent loop, and syncs ciphertext with the relay. The relay stores public keys and opaque blobs.\n\nFull notes live in ARCHITECTURE.md." = "应用只通过本机 WebSocket 与本地命令行服务通信。命令行服务保管密钥、运行智能体循环，并与中继同步密文。中继只存储公钥和不透明的数据块。\n\n完整说明见 ARCHITECTURE.md。";
 "The bot" = "智能体";
@@ -589,7 +572,6 @@
 "The CLI exited with code %d. See %@." = "命令行服务已退出，退出码 %1$d。详见 %2$@。";
 
 "the end will not load" = "末尾部分不会载入";
-"The image shows in place of the symbol and color. It is resized to %d px and shared encrypted, like an attachment." = "图像会取代符号和颜色显示。它会被缩放到 %d px，并像附件一样加密共享。";
 "The key is checked against %@ and shared with your paired Devices, encrypted." = "密钥会向 %@ 验证，并加密共享给你已配对的设备。";
 "the link" = "链接页面";
 "The lorca CLI is not bundled with this build and is not on PATH." = "此版本未内置 lorca 命令行服务，PATH 中也找不到它。";
@@ -602,7 +584,6 @@
 "The relay no longer works with this version. Chats on this Mac stay as they are, and nothing syncs with your other Devices until you update." = "中继已不再支持此版本。这台 Mac 上的聊天保持原样，但在更新之前不会与你的其他设备同步。";
 "The transcript is removed from this Device and from paired Devices." = "聊天记录将从这台设备和已配对的设备上移除。";
 "The two Devices run a handshake; the relay only carries the ciphertext. This computer joins as a Runner." = "两台设备之间进行握手，中继只传递密文。这台电脑将作为运行设备加入。";
-"theme dark mode light mode system" = "主题 深色模式 浅色模式 跟随系统 theme dark mode light mode system";
 "They start paused. %@ asks whether to turn them on." = "它们先处于暂停状态。%@ 会问你是否开启。";
 "Thinking" = "思考";
 "Thinking|status" = "正在思考";

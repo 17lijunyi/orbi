@@ -22,10 +22,12 @@ struct SettingsEntry: Hashable {
         .general, L("Return sends the message"), keywords: [L("enter send newline keyboard chats")]) }
     static var timestamps: SettingsEntry { SettingsEntry(
         .general, L("Show timestamps in transcripts"), keywords: [L("time date messages chats")]) }
-    static var appearance: SettingsEntry { SettingsEntry(
-        .general, L("Appearance"), keywords: [L("theme dark mode light mode system")]) }
+    static var windowBackground: SettingsEntry { SettingsEntry(
+        .general, "窗口背景", keywords: ["background window gradient appearance theme dark light white black", "背景 渐变 外观 主题 浅色 深色 星雾 深湾 青苔 岩茶 暮莓 白色 黑色 纯白 纯黑"]) }
     static var appLanguage: SettingsEntry { SettingsEntry(
         .general, L("App Language"), keywords: [L("language locale english chinese translation")]) }
+    static var appIcon: SettingsEntry { SettingsEntry(
+        .general, "App 图标", keywords: ["Dock 图标 毛绒 星球 形象 DIY 设计 随机 颜色 眼睛 配饰"] ) }
     static var dictationLanguage: SettingsEntry { SettingsEntry(
         .general, L("Dictation Language"), row: L("Language"),
         keywords: [L("dictate speech voice microphone locale")]) }
@@ -86,7 +88,7 @@ enum SettingsSearch {
     static func entries(in pane: SettingsPane, device: Device?, store: AppStore) -> [SettingsEntry] {
         switch pane {
         case .general:
-            [.sendOnReturn, .timestamps, .appearance, .appLanguage, .dictationLanguage]
+            [.sendOnReturn, .timestamps, .windowBackground, .appIcon, .appLanguage, .dictationLanguage]
                 + (Updater.isEnabled ? [.version, .automaticChecks, .automaticDownloads] : [])
         case .autoReview: [.autoReviewSwitch, .autoReviewRules]
         case .advanced: [.relayURL, .cliPort, .onboarding] + (store.hasIdentity == true ? [.deleteAccount] : [])

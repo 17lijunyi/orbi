@@ -128,9 +128,9 @@ class SettingsPaneViewController: NSViewController {
 // MARK: - General
 
 final class GeneralSettingsViewController: SettingsPaneViewController {
-    private let appearance = SettingsPopUpButton()
     private let appLanguage = SettingsPopUpButton()
     private let dictationLanguage = SettingsPopUpButton()
+    private let appIconPreview = NSImageView()
     private lazy var version = ActionRow(
         key: SettingsEntry.version.row, value: "", tint: .secondaryLabelColor, actionTitle: L("Check for Updates…"))
     private lazy var automaticDownloads = toggle(
@@ -151,13 +151,6 @@ final class GeneralSettingsViewController: SettingsPaneViewController {
         ])
         addSection(chats)
 
-        appearance.addItems(withTitles: [L("System"), L("Light"), L("Dark")])
-        switch NSApp.appearance?.name {
-        case .aqua?: appearance.selectItem(at: 1)
-        case .darkAqua?: appearance.selectItem(at: 2)
-        default: appearance.selectItem(at: 0)
-        }
-        configure(appearance, action: #selector(changeAppearance))
         let look = SectionView(title: L("Appearance"))
         // The app's own language. Each one is named in itself, so it reads whatever is showing.
         appLanguage.addItem(withTitle: L("System"))
@@ -173,7 +166,8 @@ final class GeneralSettingsViewController: SettingsPaneViewController {
         }
         configure(appLanguage, action: #selector(changeAppLanguage))
         look.setRows([
-            AccessoryRow(key: SettingsEntry.appearance.row, accessory: appearance),
+            WindowBackgroundPicker(),
+            makeAppIconRow(),
             AccessoryRow(key: SettingsEntry.appLanguage.row, accessory: appLanguage),
         ])
         addSection(look)
@@ -216,6 +210,41 @@ final class GeneralSettingsViewController: SettingsPaneViewController {
         addFootnote(
             L("Orbi talks only to the CLI on this computer. Nothing here is synced; each Device keeps its own settings.")
         )
+    }
+
+    private func makeAppIconRow() -> NSView {
+        appIconPreview.translatesAutoresizingMaskIntoConstraints = false
+        appIconPreview.imageScaling = .scaleProportionallyUpOrDown
+        appIconPreview.setAccessibilityLabel("当前 App 图标")
+        NSLayoutConstraint.activate([
+            appIconPreview.widthAnchor.constraint(equalToConstant: 46),
+            appIconPreview.heightAnchor.constraint(equalToConstant: 46),
+        ])
+        let edit = NSButton(title: "预设与 DIY…", target: self, action: #selector(editAppIcon))
+        edit.bezelStyle = .rounded
+        edit.identifier = NSUserInterfaceItemIdentifier("orbi.settings.appIcon")
+        edit.setAccessibilityLabel("编辑 App 图标：预设、DIY 与随机搭配")
+        let accessory = NSStackView(views: [appIconPreview, edit])
+        accessory.orientation = .horizontal
+        accessory.spacing = 10
+        accessory.alignment = .centerY
+        refreshAppIcon()
+        NotificationCenter.default.addObserver(self, selector: #selector(refreshAppIcon), name: AppIcon.didChange, object: nil)
+        let row = AccessoryRow(key: SettingsEntry.appIcon.row, accessory: accessory)
+        row.heightAnchor.constraint(greaterThanOrEqualToConstant: 60).isActive = true
+        return row
+    }
+
+    @objc private func refreshAppIcon() {
+        appIconPreview.image = AppIcon.make(size: 92)
+    }
+
+    @objc private func editAppIcon() {
+        let editor = BotLookViewController(title: "Orbi", configuration: AppIcon.configuration,
+                                           importedImageURL: AppIcon.importedImageURL) { configuration, importedImageURL in
+            try AppIcon.save(configuration: configuration, importedImageURL: importedImageURL)
+        }
+        presentAsSheet(editor)
     }
 
     private func toggle(_ isOn: Bool, _ action: Selector) -> NSSwitch {
@@ -263,13 +292,6 @@ final class GeneralSettingsViewController: SettingsPaneViewController {
         AppLanguage.choose(appLanguage.selectedItem?.representedObject as? String)
     }
 
-    @objc private func changeAppearance() {
-        switch appearance.indexOfSelectedItem {
-        case 1: NSApp.appearance = NSAppearance(named: .aqua)
-        case 2: NSApp.appearance = NSAppearance(named: .darkAqua)
-        default: NSApp.appearance = nil
-        }
-    }
 }
 
 // MARK: - Advanced

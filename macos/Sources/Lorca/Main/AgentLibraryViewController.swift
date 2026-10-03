@@ -85,11 +85,14 @@ final class AgentLibraryViewController: NSViewController, NSSearchFieldDelegate 
                 && (!localOnly || device?.isThisDevice == true)
         }
         cards.forEach { $0.removeFromSuperview() }
-        cards = bots.enumerated().map { index, bot in
-            let card = AgentLibraryCard(bot: bot, index: index, avatar: store.avatarImage(for: bot), subtitle: store.device(bot.runnerID)?.name ?? bot.provider.rawValue)
+        cards = bots.map { bot in
+            let card = AgentLibraryCard(bot: bot, avatar: AvatarView.content(for: bot, store: store), subtitle: store.device(bot.runnerID)?.name ?? bot.provider.rawValue)
             card.onOpen = { [weak self] in
                 guard let self else { return }
                 self.onOpen?(self.store.dm(with: bot.id))
+            }
+            card.onChangeLook = { [weak self] in
+                self?.presentAsSheet(BotLookViewController(botID: bot.id))
             }
             grid.addSubview(card)
             return card
@@ -136,20 +139,19 @@ final class AgentLibraryViewController: NSViewController, NSSearchFieldDelegate 
     }
 }
 
-/// Square artwork echoes an album sleeve while keeping the bot's own avatar and identity.
+/// A floating character opens its chat; the contextual menu opens the same look editor as its profile.
 final class AgentLibraryCard: NSButton {
     private let bot: Bot
-    private let index: Int
-    private let avatar: NSImage?
+    private let avatar: AvatarView.Content
     private let detail: String
     private var hovered = false { didSet { needsDisplay = true } }
     private var tracking: NSTrackingArea?
     var onOpen: (() -> Void)?
+    var onChangeLook: (() -> Void)?
     override var isFlipped: Bool { true }
 
-    init(bot: Bot, index: Int, avatar: NSImage?, subtitle: String) {
+    init(bot: Bot, avatar: AvatarView.Content, subtitle: String) {
         self.bot = bot
-        self.index = index
         self.avatar = avatar
         detail = subtitle
         super.init(frame: .zero)
@@ -163,6 +165,18 @@ final class AgentLibraryCard: NSButton {
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError() }
     @objc private func openChat() { onOpen?() }
+    @objc private func changeLook() { onChangeLook?() }
+
+    override func menu(for event: NSEvent) -> NSMenu? {
+        let menu = NSMenu()
+        let open = NSMenuItem(title: L("Open chat"), action: #selector(openChat), keyEquivalent: "")
+        open.target = self
+        menu.addItem(open)
+        let look = NSMenuItem(title: L("Change look"), action: #selector(changeLook), keyEquivalent: "")
+        look.target = self
+        menu.addItem(look)
+        return menu
+    }
 
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
@@ -177,42 +191,14 @@ final class AgentLibraryCard: NSButton {
 
     override func draw(_ dirtyRect: NSRect) {
         let cover = NSRect(x: 0, y: 0, width: bounds.width, height: bounds.width)
-        let path = NSBezierPath(roundedRect: cover, xRadius: 10, yRadius: 10)
-        NSGraphicsContext.saveGraphicsState()
-        path.addClip()
-        if let avatar, avatar.size.width > 0, avatar.size.height > 0 {
-            let scale = max(cover.width / avatar.size.width, cover.height / avatar.size.height)
-            let size = NSSize(width: avatar.size.width * scale, height: avatar.size.height * scale)
-            avatar.draw(in: NSRect(x: cover.midX - size.width / 2, y: cover.midY - size.height / 2, width: size.width, height: size.height), from: .zero, operation: .sourceOver, fraction: 1, respectFlipped: true, hints: nil)
-        } else {
-            let accent = bot.accent.color
-            let deep = accent.blended(withFraction: 0.65, of: .black) ?? accent
-            NSGradient(colors: [bot.accent.highlight, accent, deep])?.draw(in: cover, angle: CGFloat(45 + index * 35))
-            let center = NSPoint(x: cover.width * 0.52, y: cover.height * 0.52)
-            for ring in 0..<9 {
-                let diameter = cover.width * (0.40 + CGFloat(ring) * 0.18)
-                let ellipse = NSBezierPath(ovalIn: NSRect(x: center.x - diameter / 2, y: center.y - diameter / 2, width: diameter, height: diameter))
-                NSColor.white.withAlphaComponent(ring.isMultiple(of: 2) ? 0.13 : 0.06).setStroke()
-                ellipse.lineWidth = CGFloat(ring.isMultiple(of: 3) ? 10 : 1)
-                ellipse.stroke()
-            }
-            let iconSize = cover.width * 0.42
-            Glyph.symbol(bot.symbolName, pointSize: iconSize, weight: .light, color: .white)?.draw(in: NSRect(x: cover.midX - iconSize / 2, y: cover.midY - iconSize / 2, width: iconSize, height: iconSize), from: .zero, operation: .sourceOver, fraction: 0.95, respectFlipped: true, hints: nil)
-            ("O R B I   /   " + String(format: "%02d", index + 1)).draw(at: NSPoint(x: 14, y: 13), withAttributes: [.font: NSFont.systemFont(ofSize: 8, weight: .semibold), .foregroundColor: NSColor.white.withAlphaComponent(0.72)])
-        }
-        if hovered || isHighlighted {
-            NSColor.white.withAlphaComponent(isHighlighted ? 0.17 : 0.08).setFill()
-            cover.fill()
-        }
-        NSGraphicsContext.restoreGraphicsState()
-        NSColor.white.withAlphaComponent(hovered ? 0.55 : 0.12).setStroke()
-        path.lineWidth = 1
-        path.stroke()
+        let inset = cover.width * (isHighlighted ? 0.035 : hovered ? 0.005 : 0.02)
+        AvatarView.render(avatar, in: cover.insetBy(dx: inset, dy: inset))
         let paragraph = NSMutableParagraphStyle()
         paragraph.lineBreakMode = .byTruncatingTail
         bot.name.draw(in: NSRect(x: 0, y: cover.maxY + 8, width: bounds.width, height: 18), withAttributes: [.font: NSFont.systemFont(ofSize: 13, weight: .medium), .foregroundColor: NSColor.labelColor, .paragraphStyle: paragraph])
-        detail.draw(in: NSRect(x: 0, y: cover.maxY + 25, width: bounds.width, height: 16), withAttributes: [.font: NSFont.systemFont(ofSize: 11.5), .foregroundColor: NSColor.white.withAlphaComponent(0.68), .paragraphStyle: paragraph])
+        detail.draw(in: NSRect(x: 0, y: cover.maxY + 25, width: bounds.width, height: 16), withAttributes: [.font: NSFont.systemFont(ofSize: 11.5), .foregroundColor: NSColor.labelColor.withAlphaComponent(0.68), .paragraphStyle: paragraph])
         if window?.firstResponder === self {
+            let path = NSBezierPath(roundedRect: bounds.insetBy(dx: 2, dy: 2), xRadius: 12, yRadius: 12)
             NSColor.keyboardFocusIndicatorColor.setStroke()
             path.lineWidth = 3
             path.stroke()

@@ -11,12 +11,12 @@ enum Glyph {
     }
 }
 
-/// Circular gradient badge with the bot's SF Symbol, or the bot's own image. Also renders
-/// "you" and devices.
+/// A bot's plush planet or custom image, plus the badges for "you" and devices.
 final class AvatarView: NSView {
     enum Content: Hashable {
         case bot(symbolName: String, accent: Accent)
-        /// A custom profile image, drawn aspect-filled inside the circle.
+        case plush(PlushAvatar.Configuration)
+        /// A profile image, drawn in full so a character's ring and satellite remain visible.
         case image(NSImage)
         case you
         case system
@@ -125,26 +125,13 @@ final class AvatarView: NSView {
 
         switch content {
         case let .bot(symbolName, accent):
-            let gradient = NSGradient(starting: accent.highlight, ending: accent.color)
-            gradient?.draw(in: path, angle: -90)
-            renderSymbol(symbolName, in: box, color: .white, scale: 0.52)
+            renderPlush(PlushAvatar.defaultConfiguration(symbolName: symbolName, accent: accent), in: box)
+
+        case let .plush(configuration):
+            renderPlush(configuration, in: box)
 
         case let .image(image):
-            NSGraphicsContext.saveGraphicsState()
-            path.addClip()
-            NSColor.quaternaryLabelColor.setFill()
-            path.fill()
-            let size = image.size
-            guard size.width > 0, size.height > 0 else {
-                NSGraphicsContext.restoreGraphicsState()
-                return
-            }
-            // Aspect-fill: scale so the shorter side spans the circle, centered.
-            let scale = max(box.width / size.width, box.height / size.height)
-            let drawn = NSSize(width: size.width * scale, height: size.height * scale)
-            let origin = NSPoint(x: box.midX - drawn.width / 2, y: box.midY - drawn.height / 2)
-            image.draw(in: NSRect(origin: origin, size: drawn), from: .zero, operation: .sourceOver, fraction: 1, respectFlipped: true, hints: [.interpolation: NSImageInterpolation.high])
-            NSGraphicsContext.restoreGraphicsState()
+            renderImage(image, in: box)
 
         case .you:
             NSColor.tertiaryLabelColor.setFill()
@@ -156,6 +143,22 @@ final class AvatarView: NSView {
             path.fill()
             renderSymbol("gearshape.fill", in: box, color: .white, scale: 0.48)
         }
+    }
+
+    private static func renderPlush(_ configuration: PlushAvatar.Configuration, in box: NSRect) {
+        let pixels = max(1, Int(ceil(box.width * 2)))
+        let side = [128, 256, 512, 900].first(where: { $0 >= pixels }) ?? 900
+        guard let image = PlushAvatar.image(for: configuration, side: side) else { return }
+        renderImage(image, in: box)
+    }
+
+    private static func renderImage(_ image: NSImage, in box: NSRect) {
+        let size = image.size
+        guard size.width > 0, size.height > 0 else { return }
+        let scale = min(box.width / size.width, box.height / size.height)
+        let drawn = NSSize(width: size.width * scale, height: size.height * scale)
+        let origin = NSPoint(x: box.midX - drawn.width / 2, y: box.midY - drawn.height / 2)
+        image.draw(in: NSRect(origin: origin, size: drawn), from: .zero, operation: .sourceOver, fraction: 1, respectFlipped: true, hints: [.interpolation: NSImageInterpolation.high])
     }
 
     private static func renderSymbol(_ name: String, in box: NSRect, color: NSColor, scale: CGFloat) {
@@ -179,16 +182,16 @@ final class AvatarView: NSView {
         }
     }
 
-    /// The bot's image when it has one and this computer has the bytes (the store fetches them and
-    /// redraws otherwise), else its symbol on its accent.
+    /// Profile images travel through the account; while their bytes arrive, the same plush
+    /// configuration is recovered from the attachment name and drawn locally.
     @MainActor
     static func content(for bot: Bot, store: AppStore? = nil) -> Content {
         if let image = (store ?? AppStore.shared).avatarImage(for: bot) { return .image(image) }
-        return .bot(symbolName: bot.symbolName, accent: bot.accent)
+        return .plush(PlushAvatar.configuration(for: bot))
     }
 }
 
-/// Group avatars packed into a fixed square. A row of overlapping circles grows
+/// Group avatars packed into a fixed square. A row of overlapping characters grows
 /// with the participant count and drags the title along with it; a constant slot
 /// keeps every sidebar row's text on the same baseline column.
 final class AvatarClusterView: NSView {
@@ -279,9 +282,14 @@ final class AvatarClusterView: NSView {
     override func draw(_ dirtyRect: NSRect) {
         let boxes = boxes()
         for (index, box) in zip(contents.indices, boxes) {
-            // Clear a ring under each front circle so the one behind reads as separate
-            // whatever the row is sitting on — sidebar material or selection fill.
-            if index > 0, let context = NSGraphicsContext.current {
+            // Circular account/device badges retain their separator; plush characters
+            // overlap through their own alpha so no circular cutout replaces the ring.
+            let needsSeparator: Bool
+            switch contents[index] {
+            case .you, .system: needsSeparator = true
+            default: needsSeparator = false
+            }
+            if index > 0, needsSeparator, let context = NSGraphicsContext.current {
                 context.compositingOperation = .clear
                 NSColor.black.setFill()
                 NSBezierPath(ovalIn: box.insetBy(dx: -ring, dy: -ring)).fill()

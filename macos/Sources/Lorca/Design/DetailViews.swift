@@ -46,7 +46,7 @@ final class SectionView: NSView {
             headerLeading.constant = 12
             cardTop.constant = 9
             // System Settings' cards are a fill alone.
-            card.borderColor = NSColor.white.withAlphaComponent(0.10)
+            card.borderColor = Theme.surfaceRule
             setCornerRadius(16)
         }
         for (index, end) in dividerEnds.enumerated() {
