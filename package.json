@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "bun run scripts/dev.ts",
     "test:mac-startup": "bun run scripts/test-mac-startup.ts",
+    "test:workbench": "bun run scripts/test-workbench.ts",
     "build": "bun run scripts/build.ts",
     "release-mac": "bun run scripts/release-mac.ts",
     "release-ios": "bun run scripts/release-ios.ts",
@@ -25,5 +26,5 @@
   "devDependencies": {
     "@types/bun": "latest"
   },
-  "description": "Orbi：原生 macOS AI 工作台，支持智能体协作、七款窗口背景与毛绒星球 DIY。基于 Lorca 开发。"
+  "description": "Orbi：李俊祎维护的原生 macOS AI 工作台，支持智能体协作、悬浮聊天、便笺待办、毛绒星球 DIY 与七款窗口背景。"
 }

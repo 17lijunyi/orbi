@@ -193,8 +193,17 @@ final class ComposerView: NSView {
 
     /// The text, its files, and the bots its `@Name`s picked from the menu, by id.
     var onSend: ((String, [OutgoingAttachment], [Bot.ID]) -> Void)?
+    /// Workspace dismissal follows the composer's own mention and dictation handling.
+    var onCancel: (() -> Bool)?
     var onStop: (() -> Void)?
     var mentionableBots: [Bot] = []
+    /// An offline floating window keeps its draft, but cannot submit or start recording.
+    var isSendingEnabled = true {
+        didSet {
+            if !isSendingEnabled { endInteraction() }
+            updateButtons()
+        }
+    }
     /// The bots picked from the `@` menu since the last send, in order. Two bots can share a
     /// name; the pick says which one the user meant.
     private var pickedMentions: [Bot] = []
@@ -383,6 +392,11 @@ final class ComposerView: NSView {
         window?.makeFirstResponder(textView)
     }
 
+    func endInteraction() {
+        mentions.dismiss()
+        if dictation.isListening { cancelDictation() }
+    }
+
     func configure(placeholder: String, bots: [Bot]) {
         self.placeholder = placeholder
         if !dictation.isListening { textView.placeholder = placeholder }
@@ -397,6 +411,7 @@ final class ComposerView: NSView {
     }
 
     @objc private func send() {
+        guard isSendingEnabled else { return }
         if dictation.isListening {
             // The recording ends, its words land in the field, and the message goes.
             pendingSend = true
@@ -422,7 +437,7 @@ final class ComposerView: NSView {
     }
 
     @objc private func attach() {
-        guard let window else { return }
+        guard isSendingEnabled, let window else { return }
         let panel = NSOpenPanel()
         panel.canChooseFiles = true
         panel.canChooseDirectories = false
@@ -534,6 +549,7 @@ final class ComposerView: NSView {
     }
 
     @objc private func voice() {
+        guard isSendingEnabled else { return }
         if dictation.isListening {
             dictation.stop()
             return
@@ -637,6 +653,8 @@ final class ComposerView: NSView {
             return true
         }
 
+        if selector == #selector(NSResponder.cancelOperation(_:)) { return onCancel?() ?? false }
+
         guard selector == #selector(NSResponder.insertNewline(_:)) else { return false }
 
         // Shift-Return always breaks the line; plain Return sends unless the
@@ -711,6 +729,10 @@ final class ComposerView: NSView {
 
     private func updateButtons() {
         let listening = dictation.isListening
+        sendButton.isEnabled = isSendingEnabled
+        attachButton.isEnabled = isSendingEnabled
+        voiceButton.isEnabled = isSendingEnabled
+        stopButton.isEnabled = isSendingEnabled
         // While recording, Send commits the words. While a turn runs, another message steers
         // it, so Send remains available beside the separate hard Stop control.
         sendButton.isHidden = !hasContent && !listening

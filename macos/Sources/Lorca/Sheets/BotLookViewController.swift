@@ -21,8 +21,8 @@ final class BotLookViewController: NSViewController, NSTextFieldDelegate {
         let configuration: PlushAvatar.Configuration
     }
 
-    /// Every preset preserves Orbi's planet, diagonal ring and satellite.
-    private static let looks: [Look] = [
+    /// The outfits seed a fresh set of independently shaped candidates for each editor.
+    private static let lookTemplates: [Look] = [
         Look(id: "starry-pink", title: "星光粉", configuration: .init()),
         Look(id: "pink-gentleman", title: "粉色绅士", configuration: .init(eyes: "sleepy", glasses: "monocle", accessory: "bowtie")),
         Look(id: "blue-artist", title: "蓝色画家", configuration: .init(color: "#4671fa", eyes: "oval", accessory: "beret")),
@@ -37,11 +37,20 @@ final class BotLookViewController: NSViewController, NSTextFieldDelegate {
         Look(id: "lavender-stroll", title: "薰衣草漫步", configuration: .init(color: "#ab94e8", eyes: "oval", glasses: "square", accessory: "bowler")),
     ]
 
+    private static func randomizedLooks() -> [Look] {
+        zip(lookTemplates, PlushAvatar.randomShapeIDs(count: lookTemplates.count)).map { template, shape in
+            var configuration = template.configuration
+            configuration.shape = shape
+            return Look(id: template.id, title: template.title, configuration: configuration)
+        }
+    }
+
     private enum Tab: Int, CaseIterable {
-        case shape, eyes, glasses, accessory
+        case shape, bodyShape, eyes, glasses, accessory
         var title: String {
             switch self {
             case .shape: "形象"
+            case .bodyShape: "形状"
             case .eyes: "眼睛"
             case .glasses: "眼镜"
             case .accessory: "配饰"
@@ -50,6 +59,7 @@ final class BotLookViewController: NSViewController, NSTextFieldDelegate {
         var key: String {
             switch self {
             case .shape: "shape"
+            case .bodyShape: "body-shape"
             case .eyes: "eyes"
             case .glasses: "glasses"
             case .accessory: "accessory"
@@ -57,7 +67,7 @@ final class BotLookViewController: NSViewController, NSTextFieldDelegate {
         }
         var category: PlushAvatar.Category? {
             switch self {
-            case .shape: nil
+            case .shape, .bodyShape: nil
             case .eyes: .eyes
             case .glasses: .glasses
             case .accessory: .accessory
@@ -69,6 +79,7 @@ final class BotLookViewController: NSViewController, NSTextFieldDelegate {
     private let botID: Bot.ID?
     private let editorTitle: String
     private let onSave: ((PlushAvatar.Configuration, URL?) throws -> Void)?
+    private var looks = BotLookViewController.randomizedLooks()
     private var draft: PlushAvatar.Configuration
     private var selectedTab: Tab = .shape
     private var importedImage: (url: URL, image: NSImage)?
@@ -163,7 +174,7 @@ final class BotLookViewController: NSViewController, NSTextFieldDelegate {
         let navigation = NSStackView()
         navigation.translatesAutoresizingMaskIntoConstraints = false
         navigation.orientation = .horizontal
-        navigation.spacing = 19
+        navigation.spacing = 16
         navigation.alignment = .centerY
         for tab in Tab.allCases {
             let button = PlushEditorButton()
@@ -188,8 +199,9 @@ final class BotLookViewController: NSViewController, NSTextFieldDelegate {
         let random = PlushEditorButton()
         random.title = "随机搭配"
         random.textSize = 12
-        random.toolTip = "随机生成新的颜色、眼睛、眼镜和配饰组合"
+        random.toolTip = "换一组不同形状的形象，并随机搭配右侧预览"
         random.setAccessibilityLabel("随机搭配")
+        random.setAccessibilityHelp("刷新左侧十二个候选形象的独立形状，同时更换右侧预览的形状、颜色、眼睛、眼镜和配饰。")
         random.identifier = NSUserInterfaceItemIdentifier("orbi.look.randomize")
         random.onPress = { [weak self] in self?.randomize() }
         NSLayoutConstraint.activate([
@@ -216,6 +228,7 @@ final class BotLookViewController: NSViewController, NSTextFieldDelegate {
         colorRow.translatesAutoresizingMaskIntoConstraints = false
         colorRow.orientation = .horizontal
         colorRow.distribution = .equalSpacing
+        colorRow.spacing = 0
         colorRow.alignment = .centerY
         palette.addSubview(colorRow)
         NSLayoutConstraint.activate([
@@ -223,6 +236,7 @@ final class BotLookViewController: NSViewController, NSTextFieldDelegate {
             back.topAnchor.constraint(equalTo: pane.topAnchor, constant: 15),
             navigation.leadingAnchor.constraint(equalTo: back.trailingAnchor, constant: 16),
             navigation.centerYAnchor.constraint(equalTo: back.centerYAnchor),
+            navigation.trailingAnchor.constraint(lessThanOrEqualTo: random.leadingAnchor, constant: -12),
             upload.trailingAnchor.constraint(equalTo: pane.trailingAnchor, constant: -15),
             upload.centerYAnchor.constraint(equalTo: back.centerYAnchor),
             random.trailingAnchor.constraint(equalTo: upload.leadingAnchor, constant: -12),
@@ -301,7 +315,8 @@ final class BotLookViewController: NSViewController, NSTextFieldDelegate {
         optionButtons.removeAll()
         let choices: [(id: String, title: String)]
         switch selectedTab {
-        case .shape: choices = Self.looks.map { ($0.id, $0.title) }
+        case .shape: choices = looks.map { ($0.id, $0.title) }
+        case .bodyShape: choices = PlushAvatar.shapeOptions.map { ($0.id, $0.title) }
         case .eyes: choices = PlushAvatar.eyeOptions.map { ($0.id, $0.title) }
         case .glasses: choices = PlushAvatar.glassesOptions.map { ($0.id, $0.title) }
         case .accessory: choices = PlushAvatar.accessoryOptions.map { ($0.id, $0.title) }
@@ -343,8 +358,14 @@ final class BotLookViewController: NSViewController, NSTextFieldDelegate {
             if let category = selectedTab.category {
                 let color = selectedTab == .glasses ? draft.glassesColor : selectedTab == .accessory ? draft.accessoryColor : "#202124"
                 item.button.artwork = PlushAvatar.thumbnail(category: category, kind: item.id, color: color, side: 220)
-            } else if let look = Self.looks.first(where: { $0.id == item.id }) {
+            } else if selectedTab == .bodyShape {
+                item.button.artwork = PlushAvatar.shapeThumbnail(kind: item.id, color: draft.color, side: 220)
+            } else if let look = looks.first(where: { $0.id == item.id }) {
                 item.button.artwork = PlushAvatar.image(for: look.configuration, side: 260)
+                let shapeTitle = PlushAvatar.shapeOptions.first(where: { $0.id == look.configuration.shape })?.title ?? ""
+                let description = "\(look.title) · \(shapeTitle)"
+                item.button.toolTip = description
+                item.button.setAccessibilityLabel(description)
             }
         }
     }
@@ -354,7 +375,7 @@ final class BotLookViewController: NSViewController, NSTextFieldDelegate {
         swatches.removeAll()
         palette.isHidden = selectedTab == .eyes
         guard selectedTab != .eyes else { return }
-        let colors = selectedTab == .shape ? PlushAvatar.palette : PlushAvatar.componentPalette
+        let colors = selectedTab == .shape || selectedTab == .bodyShape ? PlushAvatar.palette : PlushAvatar.componentPalette
         for color in colors {
             let button = PlushEditorButton()
             button.style = .swatch
@@ -387,7 +408,8 @@ final class BotLookViewController: NSViewController, NSTextFieldDelegate {
 
     private var selectedOption: String {
         switch selectedTab {
-        case .shape: Self.looks.first(where: { $0.configuration.normalized == draft.normalized })?.id ?? ""
+        case .shape: looks.first(where: { $0.configuration.normalized == draft.normalized })?.id ?? ""
+        case .bodyShape: draft.shape
         case .eyes: draft.eyes
         case .glasses: draft.glasses
         case .accessory: draft.accessory
@@ -396,7 +418,7 @@ final class BotLookViewController: NSViewController, NSTextFieldDelegate {
 
     private var selectedColor: String {
         switch selectedTab {
-        case .shape, .eyes: draft.color
+        case .shape, .bodyShape, .eyes: draft.color
         case .glasses: draft.glassesColor
         case .accessory: draft.accessoryColor
         }
@@ -412,8 +434,9 @@ final class BotLookViewController: NSViewController, NSTextFieldDelegate {
         usePlushDraft()
         switch selectedTab {
         case .shape:
-            guard let look = Self.looks.first(where: { $0.id == id }) else { return }
+            guard let look = looks.first(where: { $0.id == id }) else { return }
             draft = look.configuration
+        case .bodyShape: draft.shape = id
         case .eyes: draft.eyes = id
         case .glasses: draft.glasses = id
         case .accessory: draft.accessory = id
@@ -424,7 +447,7 @@ final class BotLookViewController: NSViewController, NSTextFieldDelegate {
     private func selectColor(_ hex: String) {
         usePlushDraft()
         switch selectedTab {
-        case .shape, .eyes: draft.color = hex
+        case .shape, .bodyShape, .eyes: draft.color = hex
         case .glasses: draft.glassesColor = hex
         case .accessory: draft.accessoryColor = hex
         }
@@ -434,21 +457,15 @@ final class BotLookViewController: NSViewController, NSTextFieldDelegate {
 
     private func randomize() {
         usePlushDraft()
-        // A new color guarantees a visibly different result even if all parts repeat.
-        let otherColors = PlushAvatar.palette.filter { $0.hex.lowercased() != draft.color.lowercased() }
-        draft.color = otherColors.randomElement()?.hex ?? "#f667ad"
-        draft.eyes = PlushAvatar.eyeOptions.randomElement()?.id ?? draft.eyes
-        draft.glasses = PlushAvatar.glassesOptions.randomElement()?.id ?? draft.glasses
-        draft.accessory = PlushAvatar.accessoryOptions.randomElement()?.id ?? draft.accessory
-        draft.glassesColor = "#222222"
-        draft.accessoryColor = "#222222"
+        looks = Self.randomizedLooks()
+        draft = PlushAvatar.randomConfiguration(excludingShape: draft.shape, excludingColor: draft.color)
         refreshOptionImages()
         refresh()
     }
 
     private var colorTargetName: String {
         switch selectedTab {
-        case .shape, .eyes: "星球"
+        case .shape, .bodyShape, .eyes: "星球"
         case .glasses: "眼镜"
         case .accessory: "配饰"
         }

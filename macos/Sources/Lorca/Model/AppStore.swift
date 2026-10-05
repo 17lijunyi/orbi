@@ -603,8 +603,21 @@ final class AppStore {
         model: String? = nil,
         thinking: String? = nil,
         templateID: BotTemplate.ID? = nil,
-        greeting: String? = nil
+        greeting: String? = nil,
+        avatarFileURL: URL? = nil
     ) -> Bot.ID {
+        let avatar: Attachment?
+        if let avatarFileURL {
+            let attachment = Attachment(
+                id: "att-\(UUID().uuidString.lowercased().replacingOccurrences(of: "-", with: "").prefix(12))",
+                name: avatarFileURL.lastPathComponent, mime: "image/png",
+                size: (try? avatarFileURL.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0)
+            if let image = NSImage(contentsOf: avatarFileURL) { avatarImages[attachment.id] = image }
+            attachmentURLs[attachment.id] = avatarFileURL
+            avatar = attachment
+        } else {
+            avatar = nil
+        }
         let bot = Bot(
             id: "bot-\(UUID().uuidString.lowercased().prefix(8))",
             name: name,
@@ -614,6 +627,8 @@ final class AppStore {
             runnerID: runnerID,
             provider: provider,
             model: model,
+            thinking: thinking,
+            avatar: avatar,
             createdAt: Date()
         )
         bots.append(bot)
@@ -637,6 +652,10 @@ final class AppStore {
             if let templateID {
                 params["template_id"] = templateID
                 params["greeting"] = greeting ?? ""
+            }
+            // The CLI stores the image and the new bot in this same creation request.
+            if let avatar, let avatarFileURL {
+                params["avatar"] = ["id": avatar.id, "path": avatarFileURL.path, "name": avatar.name, "mime": avatar.mime]
             }
             perform("bots.create", params)
         }

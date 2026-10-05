@@ -97,7 +97,7 @@ final class AgentLibraryViewController: NSViewController, NSSearchFieldDelegate 
             grid.addSubview(card)
             return card
         }
-        empty.stringValue = store.bots.isEmpty ? L("Your team starts here.\nCreate your first teammate with +.") : L("No teammates found")
+        empty.stringValue = store.bots.isEmpty ? L("Your team starts here.\nCreate your first teammate with the planet button.") : L("No teammates found")
         empty.isHidden = !bots.isEmpty
         if let first = store.bots.first {
             composer.configure(placeholder: L("Message %@…", first.name), bots: store.bots)

@@ -52,7 +52,7 @@ final class SidebarViewController: NSViewController {
             guard let id = self?.store.thisDevice?.id else { return }
             self?.onOpenDevice?(id)
         }
-        footer.onMarketplace = { [weak self] in self?.onOpenMarketplace?() }
+        footer.onSearch = { [weak self] in self?.focusSearch() }
 
         if SidebarChrome.floats {
             // The root hangs the search bar and the footer on the split view item, and the list
@@ -562,7 +562,7 @@ private final class ActivatingSearchField: NSSearchField {
 
 // MARK: - Footer
 
-/// Two buttons at the foot of the sidebar: Settings, and this computer, whose icon turns red while
+/// Settings, search, and this computer, whose icon turns red while
 /// the CLI is not answering and orange while the CLI cannot connect to the relay, with the error
 /// in its tooltip.
 final class SidebarFooterView: NSView {
@@ -570,13 +570,12 @@ final class SidebarFooterView: NSView {
         symbol: "gearshape", tooltip: L("Settings (⌘,)"), target: self, action: #selector(openSettings))
     private lazy var device = HoverButton(
         symbol: "laptopcomputer", tooltip: "", target: self, action: #selector(openDevice))
-    /// The marketplace, at the footer's other end.
-    private lazy var marketplace = HoverButton(
-        symbol: "circle.grid.2x2", tooltip: L("Marketplace (⇧⌘M)"), target: self, action: #selector(openMarketplace))
+    private lazy var search = HoverButton(
+        symbol: "magnifyingglass", tooltip: L("Command Palette…"), target: self, action: #selector(openSearch))
 
     var onSettings: (() -> Void)?
     var onDevice: (() -> Void)?
-    var onMarketplace: (() -> Void)?
+    var onSearch: (() -> Void)?
     /// What the device button shows. The sidebar updates the footer on every store event, and
     /// one that changes none of it leaves the button alone.
     private var shown: (symbol: String, name: String, status: String)?
@@ -587,15 +586,15 @@ final class SidebarFooterView: NSView {
 
         let buttons = Build.stack([settings, device], orientation: .horizontal, spacing: 4)
         addSubview(buttons)
-        marketplace.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(marketplace)
+        search.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(search)
 
         NSLayoutConstraint.activate([
             heightAnchor.constraint(equalToConstant: 38),
             buttons.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 10),
             buttons.centerYAnchor.constraint(equalTo: centerYAnchor),
-            marketplace.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -10),
-            marketplace.centerYAnchor.constraint(equalTo: buttons.centerYAnchor),
+            search.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -10),
+            search.centerYAnchor.constraint(equalTo: buttons.centerYAnchor),
         ])
     }
 
@@ -633,5 +632,5 @@ final class SidebarFooterView: NSView {
 
     @objc private func openSettings() { onSettings?() }
     @objc private func openDevice() { onDevice?() }
-    @objc private func openMarketplace() { onMarketplace?() }
+    @objc private func openSearch() { onSearch?() }
 }

@@ -6,7 +6,8 @@ final class NewBotViewController: SheetViewController {
         let accent: Accent
     }
 
-    private static let looks: [Look] = [
+    /// Older clients keep a symbol/accent fallback beside the saved plush image.
+    private static let legacyLooks: [Look] = [
         Look(symbolName: "sparkles", accent: .indigo),
         Look(symbolName: "chevron.left.forwardslash.chevron.right", accent: .blue),
         Look(symbolName: "binoculars.fill", accent: .teal),
@@ -27,7 +28,9 @@ final class NewBotViewController: SheetViewController {
     private let lookRow = Build.stack([], orientation: .horizontal, spacing: 8)
     private let note = Build.label("", font: Theme.Font.caption, color: .tertiaryLabelColor, lines: 0)
 
-    private var lookButtons: [NSButton] = []
+    /// Generated once for this form; selecting and editing other fields never rerolls them.
+    private var looks = PlushAvatar.randomConfigurations(count: 8)
+    private var lookButtons: [NewBotLookButton] = []
     private var selectedLook = 0
 
     private let onCreate: (Bot.ID) -> Void
@@ -129,28 +132,39 @@ final class NewBotViewController: SheetViewController {
     }
 
     private func buildLookRow() {
-        for (index, look) in Self.looks.enumerated() {
-            let button = NSButton()
-            button.isBordered = false
-            button.title = ""
+        for (index, configuration) in looks.enumerated() {
+            let button = NewBotLookButton(configuration: configuration)
             button.target = self
             button.action = #selector(pickLook(_:))
             button.tag = index
-            button.translatesAutoresizingMaskIntoConstraints = false
-
-            let avatar = AvatarView(diameter: 26)
-            avatar.content = .bot(symbolName: look.symbolName, accent: look.accent)
-            button.addSubview(avatar)
-            avatar.pin(to: button)
-
-            NSLayoutConstraint.activate([
-                button.widthAnchor.constraint(equalToConstant: 26),
-                button.heightAnchor.constraint(equalToConstant: 26),
-            ])
+            button.identifier = NSUserInterfaceItemIdentifier("orbi.newbot.look.\(index)")
 
             lookButtons.append(button)
             lookRow.addArrangedSubview(button)
         }
+        let shuffle = NSButton()
+        shuffle.isBordered = false
+        shuffle.title = ""
+        shuffle.image = Glyph.symbol("shuffle", pointSize: 14, color: .secondaryLabelColor)
+        shuffle.imagePosition = .imageOnly
+        shuffle.target = self
+        shuffle.action = #selector(shuffleLooks)
+        shuffle.translatesAutoresizingMaskIntoConstraints = false
+        shuffle.identifier = NSUserInterfaceItemIdentifier("orbi.newbot.shuffle-looks")
+        shuffle.setAccessibilityLabel("换一组随机形象")
+        shuffle.toolTip = "换一组：重新生成 8 款不同的毛绒形象"
+        NSLayoutConstraint.activate([
+            shuffle.widthAnchor.constraint(equalToConstant: 26),
+            shuffle.heightAnchor.constraint(equalToConstant: 26),
+        ])
+        lookRow.addArrangedSubview(shuffle)
+        updateLookSelection()
+    }
+
+    @objc private func shuffleLooks() {
+        looks = PlushAvatar.randomConfigurations(count: 8)
+        selectedLook = 0
+        for (index, button) in lookButtons.enumerated() { button.configuration = looks[index] }
         updateLookSelection()
     }
 
@@ -161,7 +175,7 @@ final class NewBotViewController: SheetViewController {
 
     private func updateLookSelection() {
         for (index, button) in lookButtons.enumerated() {
-            button.alphaValue = index == selectedLook ? 1 : 0.35
+            button.isChosen = index == selectedLook
         }
     }
 
@@ -222,9 +236,19 @@ final class NewBotViewController: SheetViewController {
 
     override func confirmTapped() {
         let name = nameField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !name.isEmpty else { return }
-        let look = Self.looks[selectedLook]
+        guard !name.isEmpty, store.runners.indices.contains(runnerPopup.indexOfSelectedItem),
+            looks.indices.contains(selectedLook) else { return }
+        let look = Self.legacyLooks[selectedLook]
         let description = descriptionField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        let avatarURL: URL
+        do {
+            avatarURL = try PlushAvatar.writePNG(for: looks[selectedLook], side: 512)
+        } catch {
+            note.stringValue = "形象保存失败，请重试。\n\(error.localizedDescription)"
+            note.textColor = .systemRed
+            fitSheetToContent()
+            return
+        }
 
         let botID = store.createBot(
             name: name,
@@ -234,7 +258,8 @@ final class NewBotViewController: SheetViewController {
             runnerID: store.runners[runnerPopup.indexOfSelectedItem].id,
             provider: selectedProvider,
             model: selectedModel,
-            thinking: selectedThinking
+            thinking: selectedThinking,
+            avatarFileURL: avatarURL
         )
         dismiss(nil)
         onCreate(botID)
@@ -245,6 +270,70 @@ extension NewBotViewController: NSTextFieldDelegate {
     func controlTextDidChange(_ obj: Notification) {
         confirmButton.isEnabled = !nameField.stringValue
             .trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && store.runners.indices.contains(runnerPopup.indexOfSelectedItem)
+    }
+}
+
+/// Actual plush compositions at full opacity; selection has its own outline and radio state.
+private final class NewBotLookButton: NSButton {
+    var configuration: PlushAvatar.Configuration {
+        didSet { describeLook(); needsDisplay = true }
+    }
+    var isChosen = false {
+        didSet {
+            state = isChosen ? .on : .off
+            setAccessibilityValue(isChosen ? 1 : 0)
+            needsDisplay = true
+        }
+    }
+
+    init(configuration: PlushAvatar.Configuration) {
+        self.configuration = configuration
+        super.init(frame: .zero)
+        title = ""
+        isBordered = false
+        setButtonType(.radio)
+        translatesAutoresizingMaskIntoConstraints = false
+        focusRingType = .exterior
+        NSLayoutConstraint.activate([
+            widthAnchor.constraint(equalToConstant: 26),
+            heightAnchor.constraint(equalToConstant: 26),
+        ])
+        describeLook()
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError() }
+    override var acceptsFirstResponder: Bool { true }
+    override var allowsVibrancy: Bool { false }
+
+    private func describeLook() {
+        let shape = PlushAvatar.shapeOptions.first { $0.id == configuration.shape }?.title ?? "星球"
+        let color = PlushAvatar.palette.first { $0.hex == configuration.color }?.title ?? configuration.color
+        let eyes = PlushAvatar.eyeOptions.first { $0.id == configuration.eyes }?.title ?? "眼睛"
+        let glasses = PlushAvatar.glassesOptions.first { $0.id == configuration.glasses }?.title ?? "无眼镜"
+        let accessory = PlushAvatar.accessoryOptions.first { $0.id == configuration.accessory }?.title ?? "无配饰"
+        let label = "\(color)\(shape)，\(eyes)，\(glasses)，\(accessory)"
+        setAccessibilityLabel(label)
+        toolTip = label
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        if isChosen {
+            NSColor.controlAccentColor.withAlphaComponent(0.14).setFill()
+            NSBezierPath(roundedRect: bounds, xRadius: 7, yRadius: 7).fill()
+        }
+        AvatarView.render(.plush(configuration), in: bounds.insetBy(dx: 1, dy: 1))
+        if isChosen {
+            NSColor.controlAccentColor.setStroke()
+            let outline = NSBezierPath(roundedRect: bounds.insetBy(dx: 0.8, dy: 0.8), xRadius: 6, yRadius: 6)
+            outline.lineWidth = 1.6
+            outline.stroke()
+        }
+    }
+
+    override func drawFocusRingMask() {
+        NSBezierPath(roundedRect: bounds, xRadius: 7, yRadius: 7).fill()
     }
 }
 
