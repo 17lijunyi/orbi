@@ -230,6 +230,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         mainWindowController?.root.presentNewGroupChat()
     }
 
+    @objc func quickNotes(_ sender: Any?) {
+        showMainWindow()
+        mainWindowController?.showQuickNotes()
+    }
+
     @objc func newBot(_ sender: Any?) {
         showMainWindow()
         mainWindowController?.root.presentNewBot()
@@ -343,7 +348,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         // These open the main window, which stays away while onboarding is up.
         let opensMainWindow = [
             #selector(newBot(_:)), #selector(newGroupChat(_:)), #selector(showMarketplace(_:)), #selector(pairDevice(_:)),
-            #selector(find(_:)), #selector(toggleCommandPalette(_:)),
+            #selector(find(_:)), #selector(toggleCommandPalette(_:)), #selector(quickNotes(_:)),
         ]
         if let action = menuItem.action, opensMainWindow.contains(action) {
             return onboardingWindowController == nil

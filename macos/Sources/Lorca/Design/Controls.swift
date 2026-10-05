@@ -304,7 +304,7 @@ final class HoverButton: NSButton {
 
     private func symbolText(_ symbol: NSImage) -> NSAttributedString {
         let attachment = NSTextAttachment()
-        attachment.image = symbol
+        attachment.image = symbol.withSymbolConfiguration(.init(paletteColors: [labelTint])) ?? symbol
         let text = NSMutableAttributedString(attachment: attachment)
         // The text system sets the symbol under the capitals' center by this much.
         text.addAttribute(.baselineOffset, value: Self.symbolLift, range: NSRange(location: 0, length: text.length))
@@ -324,9 +324,13 @@ final class HoverButton: NSButton {
             text.append(symbolText(trailingSymbol))
         }
         text.addAttributes(
-            [.font: Self.labelFont, .foregroundColor: NSColor.secondaryLabelColor],
+            [.font: Self.labelFont, .foregroundColor: labelTint],
             range: NSRange(location: 0, length: text.length))
         return text
+    }
+
+    private var labelTint: NSColor {
+        isEnabled ? (contentTintColor ?? .secondaryLabelColor) : .disabledControlTextColor
     }
 
     override var intrinsicContentSize: NSSize {

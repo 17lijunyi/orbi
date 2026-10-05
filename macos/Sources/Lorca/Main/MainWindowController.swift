@@ -44,9 +44,8 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         devicePicker.target = self
         devicePicker.action = #selector(pickDevice)
         workspace.onTasks = { [weak self] in self?.toggleRunningTasks(nil) }
-        workspace.onNotes = { [weak self] in self?.toggleNotes() }
-        workspace.onTodos = { [weak self] in self?.toggleTodos() }
-        workspace.onFloatingChat = { [weak self] in self?.toggleFloatingChat() }
+        workspace.onTodos = { [weak self] in self?.showTodos() }
+        workspace.onFloatingChat = { [weak self] in self?.showFloatingChat() }
         workbench.onChange = { [weak self] in self?.todosContent?.reload() }
         root.onContentChange = { [weak self] in self?.workspace.refresh() }
         root.onSelectionChange = { [weak self] in
@@ -162,14 +161,12 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     }
 
     private func refreshToolVisibility() {
-        workspace.setToolVisibility(notes: notesWindow?.isVisible == true,
-            todos: todosWindow?.isVisible == true, chat: floatingWindow?.isVisible == true)
+        workspace.setToolVisibility(todos: todosWindow?.isVisible == true, chat: floatingWindow?.isVisible == true)
         Notifier.shared.watchingChanged()
     }
 
-    private func toggleNotes() {
+    func showQuickNotes() {
         guard workbench.identityID != nil else { return }
-        if notesWindow?.isVisible == true { notesWindow?.close(); return }
         if notesWindow == nil {
             let content = QuickNotesViewController(store: workbench)
             let tool = ToolWindowController(content: content, size: NSSize(width: 340, height: 360),
@@ -183,11 +180,6 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         }
         notesWindow?.present(beside: window, offset: NSPoint(x: 100, y: 152))
         notesContent?.focus()
-    }
-
-    private func toggleTodos() {
-        if todosWindow?.isVisible == true { todosWindow?.close(); return }
-        showTodos()
     }
 
     private func showTodos() {
@@ -205,9 +197,8 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         todosContent?.focus()
     }
 
-    private func toggleFloatingChat() {
+    private func showFloatingChat() {
         guard workbench.identityID != nil else { return }
-        if floatingWindow?.isVisible == true { floatingWindow?.close(); return }
         guard let chatID = root.currentOrRecentChatID else { return }
         if floatingWindow == nil {
             let content = FloatingChatViewController()

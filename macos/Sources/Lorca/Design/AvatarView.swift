@@ -39,6 +39,8 @@ final class AvatarView: NSView {
         if onClick != nil { addCursorRect(bounds, cursor: .pointingHand) }
     }
 
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { onClick != nil }
+
     override func mouseDown(with event: NSEvent) {
         guard onClick != nil else { return super.mouseDown(with: event) }
     }

@@ -19,6 +19,7 @@ final class SettingsSidebarViewController: NSViewController {
             symbol: "chevron.left", pointSize: 12, title: L("Back"), tooltip: L("Back to Chats (esc)"), target: self,
             action: #selector(back))
         back.setAccessibilityLabel(L("Back to Chats"))
+        back.contentTintColor = Theme.surfaceInk
         back.translatesAutoresizingMaskIntoConstraints = false
         let bar = NSView()
         bar.translatesAutoresizingMaskIntoConstraints = false
@@ -27,6 +28,8 @@ final class SettingsSidebarViewController: NSViewController {
             bar.heightAnchor.constraint(equalToConstant: 38),
             back.leadingAnchor.constraint(equalTo: bar.leadingAnchor, constant: 10),
             back.centerYAnchor.constraint(equalTo: bar.centerYAnchor),
+            back.widthAnchor.constraint(greaterThanOrEqualToConstant: 100),
+            back.heightAnchor.constraint(equalToConstant: 32),
         ])
         return bar
     }()

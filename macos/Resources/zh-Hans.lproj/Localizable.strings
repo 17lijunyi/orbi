@@ -339,6 +339,7 @@
 "Great. Keep the announcement as a draft until I've reviewed it." = "很好。先把公告保留为草稿，等我审阅后再发布。";
 "Group · %@ · %@" = "群聊 · %1$@ · %2$@";
 "Group name (optional)" = "群聊名称（可选）";
+"Group|capsule" = "创建群聊";
 "Handed off to %@" = "已转交给 %@";
 "Handles deploys and incident triage, watches the relay, and always states the blast radius first." = "负责部署和故障排查，监测中继服务，并先说明操作的影响范围。";
 "Help" = "帮助";
@@ -477,7 +478,6 @@
 "Not set" = "未设定";
 "Not signed in" = "未登录";
 "Notes" = "笔记";
-"Notes|capsule" = "便笺";
 "Nothing here yet." = "这里还没有内容。";
 "Nothing in the marketplace yet." = "市场里还没有内容。";
 "Nothing installed yet. Find plugins in the marketplace." = "尚未安装任何插件。请在市场中查找插件。";

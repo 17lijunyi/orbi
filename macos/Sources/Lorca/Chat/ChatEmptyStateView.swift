@@ -137,6 +137,7 @@ final class SuggestionChip: NSView {
 
     /// Claims the press. Unclaimed, AppKit hands it to the transcript table under the empty
     /// state, whose tracking loop takes the mouse-up, so the click never lands here.
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { onClick != nil }
     override func mouseDown(with event: NSEvent) {}
 
     override func mouseUp(with event: NSEvent) {

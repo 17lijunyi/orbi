@@ -935,6 +935,12 @@ final class RecordingPill: BackgroundView {
         onStop?()
     }
 
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { onStop != nil }
+
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        super.hitTest(point) == nil ? nil : self
+    }
+
     override func accessibilityPerformPress() -> Bool {
         onStop?()
         return true
