@@ -3,9 +3,11 @@
 <p align="center">在 Mac 上，和你的 AI 工作伙伴一起完成任务。</p>
 <p align="center">原生 macOS · 智能体协作 · 毛绒星球 DIY · 七款窗口背景</p>
 
-Orbi 是由[李俊祎](https://github.com/17lijunyi)设计并维护的个人 AI 工作台。你可以为不同工作建立智能体，在资料库中找到它们，发起单聊或协作群聊，并从同一个桌面应用管理模型服务、设备与任务。
+Orbi 是[李俊祎](https://github.com/17lijunyi)个人打造的 macOS AI 工作台。产品定位、交互与视觉设计、中文体验，以及毛绒星球 DIY、七款窗口背景和悬浮工作台等新增功能，由李俊祎独立负责并持续迭代。
 
-[源码仓库](https://github.com/17lijunyi/orbi) · [个人网站](https://17lijunyi.github.io/) · [改造记录](docs/ORBI_CHANGES.md) · [架构说明](ARCHITECTURE.md) · [反馈问题](https://github.com/17lijunyi/orbi/issues)
+你可以为不同工作建立智能体，在资料库中找到它们，发起单聊或协作群聊，并从同一个桌面应用管理模型服务、设备与任务。
+
+[源码仓库](https://github.com/17lijunyi/orbi) · [个人网站](https://17lijunyi.github.io/) · [功能说明](docs/ORBI_CHANGES.md) · [架构说明](ARCHITECTURE.md) · [反馈问题](https://github.com/17lijunyi/orbi/issues)
 
 ## 一个桌面工作台
 
@@ -100,13 +102,13 @@ open -n --env LORCA_MOCK=1 "macos/.build/bundle/debug/Orbi Dev.app"
 | `mobile/` | Lorca 手机客户端及共享核心接入 |
 | `web/` | Lorca 网站与中英文技术文档源码 |
 | `scripts/` | 构建、开发循环、本地化检查与发布脚本 |
-| `docs/` | Orbi 改造记录、智能体机制与发布说明 |
+| `docs/` | Orbi 功能说明、智能体机制与发布说明 |
 
 毛绒形象的分层素材位于 `macos/Resources/PlushAvatars/`，默认 App 图标为 `macos/Resources/Orbi.png`。更新默认图标后，运行 `bun run scripts/app-icon.ts` 生成 macOS 的 `Orbi.icns`。
 
 ## 验证与发布
 
-2026-10-05 的本地验证通过开发版构建、4 项 macOS 启动检查，以及本地化表检查（macOS 835/835、手机端 317/317，均无问题）。形状配置验证覆盖旧配置恢复、新格式往返与图标重启恢复；原生编辑器验证五页布局、独立随机候选、50 次随机切换、精确保存与取消。具体范围见 [改造记录](docs/ORBI_CHANGES.md)。
+2026-10-05 的本地验证通过开发版构建、4 项 macOS 启动检查，以及本地化表检查（macOS 835/835、手机端 317/317，均无问题）。形状配置验证覆盖旧配置恢复、新格式往返与图标重启恢复；原生编辑器验证五页布局、独立随机候选、50 次随机切换、精确保存与取消。具体范围见 [功能说明](docs/ORBI_CHANGES.md)。
 
 在本机运行检查：
 
