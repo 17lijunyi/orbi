@@ -8,6 +8,13 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     private var palette: CommandPalette?
     private var tasksPopover: NSPopover?
     private var tasksClosedAt = Date.distantPast
+    private let workbench = WorkbenchStore()
+    private var notesContent: QuickNotesViewController?
+    private var notesWindow: ToolWindowController?
+    private var todosContent: TodoListViewController?
+    private var todosWindow: ToolWindowController?
+    private var floatingContent: FloatingChatViewController?
+    private var floatingWindow: ToolWindowController?
 
     init() {
         let window = NSWindow(
@@ -33,10 +40,14 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         window.delegate = self
         if let contentView = window.contentView { workspace.view.frame = contentView.frame }
         window.contentViewController = workspace
+        workspace.installWindowControls(in: window)
         devicePicker.target = self
         devicePicker.action = #selector(pickDevice)
-        workspace.onSearch = { [weak self] in self?.toggleCommandPalette() }
         workspace.onTasks = { [weak self] in self?.toggleRunningTasks(nil) }
+        workspace.onNotes = { [weak self] in self?.toggleNotes() }
+        workspace.onTodos = { [weak self] in self?.toggleTodos() }
+        workspace.onFloatingChat = { [weak self] in self?.toggleFloatingChat() }
+        workbench.onChange = { [weak self] in self?.todosContent?.reload() }
         root.onContentChange = { [weak self] in self?.workspace.refresh() }
         root.onSelectionChange = { [weak self] in
             self?.updateTitle()
@@ -45,11 +56,17 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         }
         AppStore.shared.observe(self) { [weak self] event in
             switch event {
-            case .rosterChanged, .snapshotReplaced, .connectionChanged: self?.updateToolbar()
-            case .messageAdded, .messageChanged, .messageRemoved, .chatsChanged, .runningTasksChanged: self?.updateRunningTasks()
+            case .identityChanged, .snapshotReplaced:
+                self?.syncWorkbenchIdentity()
+                self?.updateToolbar()
+                self?.refreshFloatingTitle()
+            case .rosterChanged, .connectionChanged: self?.updateToolbar(); self?.refreshFloatingTitle()
+            case .chatsChanged, .chatChanged: self?.updateRunningTasks(); self?.refreshFloatingTitle()
+            case .messageAdded, .messageChanged, .messageRemoved, .runningTasksChanged: self?.updateRunningTasks()
             default: break
             }
         }
+        syncWorkbenchIdentity()
         updateTitle()
         updateToolbar()
         StartupTrace.mark("glass workspace configured")
@@ -64,6 +81,12 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         tasksPopover?.close()
         root.languageChanged()
         workspace.languageChanged()
+        notesContent?.languageChanged()
+        todosContent?.languageChanged()
+        floatingContent?.languageChanged()
+        notesWindow?.setHeading(L("Quick Notes"), subtitle: L("A thought, kept close"))
+        todosWindow?.setHeading(L("To-dos"), subtitle: L("One thing at a time"))
+        refreshFloatingTitle()
         updateTitle()
         updateToolbar()
     }
@@ -82,10 +105,6 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             devicePicker.lastItem?.image = NSImage(systemSymbolName: device.symbolName, accessibilityDescription: nil)
         }
         selectPickedDevice()
-        devicePicker.menu?.addItem(.separator())
-        let pair = NSMenuItem(title: L("Pair a Device…"), action: #selector(pairDevice), keyEquivalent: "")
-        pair.target = self
-        devicePicker.menu?.addItem(pair)
     }
 
     private func selectPickedDevice() {
@@ -97,17 +116,119 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         guard let id = devicePicker.selectedItem?.representedObject as? String else { return }
         root.showSettingsDevice(id)
     }
-    @objc private func pairDevice() {
-        selectPickedDevice()
-        NSApp.sendAction(#selector(AppDelegate.pairDevice(_:)), to: nil, from: nil)
-    }
-
     // MARK: - Running tasks
 
     /// The chat on screen, when a chat is.
     private var selectedChatID: Chat.ID? {
         if case let .chat(id) = root.selection { return id }
         return nil
+    }
+
+    /// Notification watching follows the window the user is reading, including the mini chat.
+    var visibleChatID: Chat.ID? {
+        if floatingWindow?.isVisible == true, floatingWindow?.window?.isKeyWindow == true {
+            return floatingContent?.chatID
+        }
+        if window?.isVisible == true, window?.isMiniaturized != true, let selectedChatID {
+            return selectedChatID
+        }
+        return floatingWindow?.isVisible == true ? floatingContent?.chatID : nil
+    }
+
+    // MARK: - Floating workbench
+
+    private func syncWorkbenchIdentity() {
+        let store = AppStore.shared
+        let identity = store.hasIdentity == true ? (store.identityID ?? (store.isMock ? "preview" : nil)) : nil
+        guard identity != workbench.identityID else { return }
+        // Flush to the old identity before switching the local document.
+        notesContent?.flush()
+        notesWindow?.close()
+        todosWindow?.close()
+        floatingWindow?.close()
+        notesContent = nil
+        notesWindow = nil
+        todosContent = nil
+        todosWindow = nil
+        floatingContent = nil
+        floatingWindow = nil
+        workbench.useIdentity(identity)
+        refreshToolVisibility()
+    }
+
+    private func configureTool(_ tool: ToolWindowController) {
+        tool.onVisibilityChange = { [weak self] in self?.refreshToolVisibility() }
+        tool.onFocusChange = { Notifier.shared.watchingChanged() }
+    }
+
+    private func refreshToolVisibility() {
+        workspace.setToolVisibility(notes: notesWindow?.isVisible == true,
+            todos: todosWindow?.isVisible == true, chat: floatingWindow?.isVisible == true)
+        Notifier.shared.watchingChanged()
+    }
+
+    private func toggleNotes() {
+        guard workbench.identityID != nil else { return }
+        if notesWindow?.isVisible == true { notesWindow?.close(); return }
+        if notesWindow == nil {
+            let content = QuickNotesViewController(store: workbench)
+            let tool = ToolWindowController(content: content, size: NSSize(width: 340, height: 360),
+                minimum: NSSize(width: 310, height: 280), name: "OrbiQuickNotes", canPin: true)
+            tool.setHeading(L("Quick Notes"), subtitle: L("A thought, kept close"))
+            content.onShowTasks = { [weak self] in self?.showTodos() }
+            tool.onWillClose = { [weak content] in content?.flush() }
+            configureTool(tool)
+            notesContent = content
+            notesWindow = tool
+        }
+        notesWindow?.present(beside: window, offset: NSPoint(x: 100, y: 152))
+        notesContent?.focus()
+    }
+
+    private func toggleTodos() {
+        if todosWindow?.isVisible == true { todosWindow?.close(); return }
+        showTodos()
+    }
+
+    private func showTodos() {
+        guard workbench.identityID != nil else { return }
+        if todosWindow == nil {
+            let content = TodoListViewController(store: workbench)
+            let tool = ToolWindowController(content: content, size: NSSize(width: 340, height: 400),
+                minimum: NSSize(width: 310, height: 270), name: "OrbiTodos", canPin: true)
+            tool.setHeading(L("To-dos"), subtitle: L("One thing at a time"))
+            configureTool(tool)
+            todosContent = content
+            todosWindow = tool
+        }
+        todosWindow?.present(beside: window, offset: NSPoint(x: 460, y: 152))
+        todosContent?.focus()
+    }
+
+    private func toggleFloatingChat() {
+        guard workbench.identityID != nil else { return }
+        if floatingWindow?.isVisible == true { floatingWindow?.close(); return }
+        guard let chatID = root.currentOrRecentChatID else { return }
+        if floatingWindow == nil {
+            let content = FloatingChatViewController()
+            let tool = ToolWindowController(content: content, size: NSSize(width: 440, height: 520),
+                minimum: NSSize(width: 360, height: 380), name: "OrbiFloatingChat", canPin: true)
+            content.onClose = { [weak tool] in tool?.close() }
+            content.onChatChange = { [weak self] in self?.refreshFloatingTitle(); Notifier.shared.watchingChanged() }
+            tool.onWillClose = { [weak content] in content?.suspend() }
+            configureTool(tool)
+            floatingContent = content
+            floatingWindow = tool
+        }
+        floatingContent?.show(chatID)
+        floatingWindow?.present(beside: window, offset: NSPoint(x: (window?.frame.width ?? 1040) - 468, y: 234))
+        floatingContent?.focus()
+    }
+
+    private func refreshFloatingTitle() {
+        guard let id = floatingContent?.chatID else { return }
+        guard let chat = AppStore.shared.chat(id) else { floatingWindow?.close(); return }
+        floatingWindow?.setHeading(AppStore.shared.title(for: chat), subtitle: L("Floating Chat"))
     }
 
     /// Shows the Running tasks button with how many commands the chat on screen has running,

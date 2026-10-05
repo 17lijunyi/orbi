@@ -139,7 +139,7 @@ final class BotPickerViewController: SheetViewController {
     }
 }
 
-final class SelectableBotRow: NSView {
+final class SelectableBotRow: NSButton {
     private let check = NSImageView()
     private let avatar = AvatarView(diameter: 28)
     private let name = Build.label("", font: .systemFont(ofSize: 13, weight: .medium))
@@ -157,10 +157,11 @@ final class SelectableBotRow: NSView {
                 systemSymbolName: isSelected ? "checkmark.circle.fill" : "circle",
                 accessibilityDescription: nil)
             check.contentTintColor = isSelected ? .controlAccentColor : .tertiaryLabelColor
+            state = isSelected ? .on : .off
         }
     }
 
-    var isEnabled = true {
+    override var isEnabled: Bool {
         didSet { alphaValue = isEnabled ? 1 : 0.45 }
     }
 
@@ -168,6 +169,12 @@ final class SelectableBotRow: NSView {
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
         wantsLayer = true
+        title = ""
+        isBordered = false
+        focusRingType = .exterior
+        setAccessibilityRole(.checkBox)
+        target = self
+        action = #selector(toggle)
 
         check.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 14, weight: .regular)
         check.translatesAutoresizingMaskIntoConstraints = false
@@ -203,6 +210,7 @@ final class SelectableBotRow: NSView {
         name.stringValue = bot.name
         detail.stringValue = detailText
         offline.isHidden = !isOffline
+        setAccessibilityLabel(bot.name + " · " + detailText + (isOffline ? " · " + L("offline") : ""))
     }
 
     override var allowsVibrancy: Bool { false }
@@ -219,14 +227,15 @@ final class SelectableBotRow: NSView {
     override func mouseEntered(with event: NSEvent) { isHovered = true }
     override func mouseExited(with event: NSEvent) { isHovered = false }
 
-    override func mouseUp(with event: NSEvent) {
-        guard isEnabled else { return }
-        onToggle?()
+    @objc private func toggle() { onToggle?() }
+
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        super.hitTest(point) == nil ? nil : self
     }
 
     override func draw(_ dirtyRect: NSRect) {
-        guard isHovered, isEnabled else { return }
-        NSColor.labelColor.withAlphaComponent(0.05).setFill()
-        bounds.fill()
+        guard (isSelected || isHovered || isHighlighted), isEnabled else { return }
+        (isSelected ? NSColor.systemPink : NSColor.labelColor).withAlphaComponent(isSelected ? 0.10 : 0.05).setFill()
+        NSBezierPath(roundedRect: bounds.insetBy(dx: 1, dy: 1), xRadius: 13, yRadius: 13).fill()
     }
 }

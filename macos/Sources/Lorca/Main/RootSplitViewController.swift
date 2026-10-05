@@ -5,6 +5,9 @@ final class RootSplitViewController: NSSplitViewController {
 
     private let sidebarContainer = ContentContainerViewController()
     private lazy var sidebar = makeSidebar()
+    private var teamDrawer: TeammateDrawerViewController?
+    private var sidebarBeforeDrawer = false
+    private(set) var isTeamDrawerOpen = false
     private var settingsSidebarStorage: SettingsSidebarViewController?
     private var settingsSidebar: SettingsSidebarViewController {
         if let controller = settingsSidebarStorage { return controller }
@@ -36,7 +39,7 @@ final class RootSplitViewController: NSSplitViewController {
     /// toolbar. This computer until another is picked.
     private(set) var settingsDeviceID: Device.ID?
     private var settingsControllers: [SettingsPane: NSViewController] = [:]
-    /// The most recently visited chat, available from the detached navigation rail.
+    /// The most recently visited chat, available from the sidebar and floating chat.
     private var lastChatID: Chat.ID?
     private var selectionBeforeSettings: Selection?
     /// What held the keyboard when Settings opened, to hand it back on the way out.
@@ -51,8 +54,17 @@ final class RootSplitViewController: NSSplitViewController {
 
     var floatingComposer: ComposerView? {
         guard store.isConnected, selection?.isSettings != true else { return nil }
-        if case .chat = selection { return chatController?.composer }
-        return libraryController.composer
+        let composer: ComposerView?
+        if case .chat = selection { composer = chatController?.composer }
+        else { composer = libraryController.composer }
+        // The composer lives outside the split view, so Escape needs this explicit route.
+        composer?.onCancel = { [weak self] in self?.dismissTransientLayout() ?? false }
+        return composer
+    }
+
+    var currentOrRecentChatID: Chat.ID? {
+        if case let .chat(id) = selection, store.chat(id) != nil { return id }
+        return lastChatID.flatMap { store.chat($0)?.id } ?? store.chats.first?.id
     }
 
     func openRecentChat() {
@@ -196,6 +208,7 @@ final class RootSplitViewController: NSSplitViewController {
         loadingController = LoadingViewController()
         placeholderController = makePlaceholderController()
         libraryController = makeLibraryController()
+        teamDrawer?.languageChanged()
         guard isViewLoaded else { return }
         updateContent()
         syncSidebar()
@@ -252,6 +265,8 @@ final class RootSplitViewController: NSSplitViewController {
     // MARK: - Selection
 
     func select(_ newSelection: Selection?) {
+        if isTeamDrawerOpen { closeTeamDrawer() }
+        if newSelection?.isSettings == true { sidebarItem.isCollapsed = false }
         if newSelection?.isSettings == true, selection?.isSettings != true {
             selectionBeforeSettings = selection
             focusBeforeSettings = view.window?.firstResponder as? NSView
@@ -305,6 +320,7 @@ final class RootSplitViewController: NSSplitViewController {
     /// Escape leaves Settings. NSResponder has no implementation to call, so anywhere else the
     /// command keeps travelling up the chain.
     override func cancelOperation(_ sender: Any?) {
+        if dismissTransientLayout() { return }
         guard selection?.isSettings == true else {
             nextResponder?.doCommand(by: #selector(cancelOperation(_:)))
             return
@@ -312,10 +328,19 @@ final class RootSplitViewController: NSSplitViewController {
         closeSettings()
     }
 
+    private func dismissTransientLayout() -> Bool {
+        if isTeamDrawerOpen { closeTeamDrawer(); return true }
+        return false
+    }
+
     /// Shows the sidebar the selection belongs to, with its row selected. When the sidebars trade
     /// places the keyboard moves with them: to the settings list on the way in, back to whatever
     /// had it on the way out.
     private func syncSidebar() {
+        if isTeamDrawerOpen, let teamDrawer {
+            sidebarContainer.show(teamDrawer)
+            return
+        }
         let isSettings = selection?.isSettings == true
         let wasSettings = settingsSidebarStorage?.parent != nil
         sidebarContainer.show(isSettings ? settingsSidebar : sidebar)
@@ -506,6 +531,7 @@ final class RootSplitViewController: NSSplitViewController {
     }
 
     override func toggleSidebar(_ sender: Any?) {
+        if isTeamDrawerOpen { closeTeamDrawer(); return }
         sidebarItem.isCollapsed.toggle()
         onContentChange?()
     }
@@ -517,11 +543,38 @@ final class RootSplitViewController: NSSplitViewController {
     }
 
     func presentNewGroupChat() {
-        let sheet = NewGroupChatViewController { [weak self] botIDs, title in
-            guard let self else { return }
-            self.open(self.store.createChat(kind: .group, with: botIDs, title: title))
+        guard store.isConnected, store.hasIdentity == true else { NSSound.beep(); return }
+        if isTeamDrawerOpen { teamDrawer?.focusName(); return }
+        if teamDrawer == nil {
+            let drawer = TeammateDrawerViewController()
+            drawer.onBack = { [weak self] in self?.closeTeamDrawer() }
+            drawer.onCreate = { [weak self] botIDs, title in
+                guard let self, self.store.isConnected else { return }
+                self.closeTeamDrawer()
+                self.teamDrawer = nil
+                self.open(self.store.createChat(kind: .group, with: botIDs, title: title))
+            }
+            teamDrawer = drawer
         }
-        presentAsSheet(sheet)
+        sidebarBeforeDrawer = sidebarItem.isCollapsed
+        isTeamDrawerOpen = true
+        sidebarItem.isCollapsed = false
+        syncSidebar()
+        teamDrawer?.focusName()
+        onContentChange?()
+    }
+
+    func toggleTeamDrawer() {
+        if isTeamDrawerOpen { closeTeamDrawer() } else { presentNewGroupChat() }
+    }
+
+    private func closeTeamDrawer() {
+        guard isTeamDrawerOpen else { return }
+        isTeamDrawerOpen = false
+        syncSidebar()
+        sidebarItem.isCollapsed = sidebarBeforeDrawer
+        focusContent()
+        onContentChange?()
     }
 
     /// Every bot has a direct chat, so creating one lands in that chat right away.

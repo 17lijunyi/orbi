@@ -15,8 +15,17 @@ enum PlushAvatar {
     }
 
     enum Category: String {
-        case eyes, glasses, accessory
+        case shape, eyes, glasses, accessory
     }
+
+    static let shapeOptions = [
+        Option(id: "circle", title: "圆形"), Option(id: "triangle", title: "三角形"),
+        Option(id: "capsule", title: "胶囊"), Option(id: "bear", title: "小熊"),
+        Option(id: "blob", title: "云朵"), Option(id: "heart", title: "爱心"),
+        Option(id: "butterfly", title: "蝴蝶"), Option(id: "sprout", title: "嫩芽"),
+        Option(id: "flower", title: "花朵"), Option(id: "pebble", title: "卵石"),
+        Option(id: "diamond", title: "菱形"),
+    ]
 
     static let eyeOptions = [
         Option(id: "lashes", title: "睫毛"), Option(id: "oval", title: "豆豆眼"),
@@ -52,6 +61,7 @@ enum PlushAvatar {
     ]
 
     struct Configuration: Codable, Hashable {
+        var shape: String
         var color: String
         var eyes: String
         var glasses: String
@@ -60,9 +70,10 @@ enum PlushAvatar {
         var accessoryColor: String
 
         init(
-            color: String = "#f667ad", eyes: String = "sparkle", glasses: String = "none",
+            shape: String = "circle", color: String = "#f667ad", eyes: String = "sparkle", glasses: String = "none",
             accessory: String = "none", glassesColor: String = "#222222", accessoryColor: String = "#222222"
         ) {
+            self.shape = shape
             self.color = color
             self.eyes = eyes
             self.glasses = glasses
@@ -71,14 +82,34 @@ enum PlushAvatar {
             self.accessoryColor = accessoryColor
         }
 
-        /// The index order is part of the v1 attachment format; append options rather than
-        /// reordering them. Eye index 8 is the bare planet used in the shape picker.
+        private enum CodingKeys: String, CodingKey {
+            case shape, color, eyes, glasses, accessory, glassesColor, accessoryColor
+        }
+
+        /// App-icon preferences saved before shapes existed keep their colors and face.
+        init(from decoder: Decoder) throws {
+            let values = try decoder.container(keyedBy: CodingKeys.self)
+            self.init(
+                shape: try values.decodeIfPresent(String.self, forKey: .shape) ?? "circle",
+                color: try values.decode(String.self, forKey: .color),
+                eyes: try values.decode(String.self, forKey: .eyes),
+                glasses: try values.decode(String.self, forKey: .glasses),
+                accessory: try values.decode(String.self, forKey: .accessory),
+                glassesColor: try values.decode(String.self, forKey: .glassesColor),
+                accessoryColor: try values.decode(String.self, forKey: .accessoryColor)
+            )
+        }
+
+        /// Part indices are shared by v1 and v2 attachments; append options rather than
+        /// reordering them. Shapes use stable IDs in v2. Eye index 8 is the bare shape.
+        private static let shapeIDs = Set(PlushAvatar.shapeOptions.map(\.id))
         private static let eyeIDs = PlushAvatar.eyeOptions.map(\.id) + ["none"]
         private static let glassesIDs = PlushAvatar.glassesOptions.map(\.id)
         private static let accessoryIDs = PlushAvatar.accessoryOptions.map(\.id)
 
         var normalized: Configuration {
             Configuration(
+                shape: Self.shapeIDs.contains(shape) ? shape : "circle",
                 color: PlushAvatar.normalizedHex(color) ?? "#f667ad",
                 eyes: Self.eyeIDs.contains(eyes) ? eyes : "sparkle",
                 glasses: Self.glassesIDs.contains(glasses) ? glasses : "none",
@@ -93,22 +124,34 @@ enum PlushAvatar {
             let eyeIndex = Self.eyeIDs.firstIndex(of: value.eyes) ?? 2
             let glassesIndex = Self.glassesIDs.firstIndex(of: value.glasses) ?? 0
             let accessoryIndex = Self.accessoryIDs.firstIndex(of: value.accessory) ?? 0
-            return "orbi-plush-v1-\(value.color.dropFirst())-\(eyeIndex)-\(glassesIndex)-\(accessoryIndex)-\(value.glassesColor.dropFirst())-\(value.accessoryColor.dropFirst()).png"
+            return "orbi-plush-v2-\(value.shape)-\(value.color.dropFirst())-\(eyeIndex)-\(glassesIndex)-\(accessoryIndex)-\(value.glassesColor.dropFirst())-\(value.accessoryColor.dropFirst()).png"
         }
 
         init?(fileName: String) {
             guard fileName.count < 128, fileName.lowercased().hasSuffix(".png") else { return nil }
             let parts = fileName.lowercased().dropLast(4).split(separator: "-", omittingEmptySubsequences: false)
-            guard parts.count == 9, parts[0] == "orbi", parts[1] == "plush", parts[2] == "v1",
-                parts[3].count == 6, let color = PlushAvatar.normalizedHex(String(parts[3])),
-                let eyeIndex = Int(parts[4]), Self.eyeIDs.indices.contains(eyeIndex),
-                let glassesIndex = Int(parts[5]), Self.glassesIDs.indices.contains(glassesIndex),
-                let accessoryIndex = Int(parts[6]), Self.accessoryIDs.indices.contains(accessoryIndex),
-                parts[7].count == 6, let glassesColor = PlushAvatar.normalizedHex(String(parts[7])),
-                parts[8].count == 6, let accessoryColor = PlushAvatar.normalizedHex(String(parts[8]))
+            guard parts.count >= 3, parts[0] == "orbi", parts[1] == "plush" else { return nil }
+            let shape: String
+            let colorOffset: Int
+            switch (parts[2], parts.count) {
+            case ("v1", 9):
+                shape = "circle"
+                colorOffset = 3
+            case ("v2", 10):
+                shape = Self.shapeIDs.contains(String(parts[3])) ? String(parts[3]) : "circle"
+                colorOffset = 4
+            default:
+                return nil
+            }
+            guard parts[colorOffset].count == 6, let color = PlushAvatar.normalizedHex(String(parts[colorOffset])),
+                let eyeIndex = Int(parts[colorOffset + 1]), Self.eyeIDs.indices.contains(eyeIndex),
+                let glassesIndex = Int(parts[colorOffset + 2]), Self.glassesIDs.indices.contains(glassesIndex),
+                let accessoryIndex = Int(parts[colorOffset + 3]), Self.accessoryIDs.indices.contains(accessoryIndex),
+                parts[colorOffset + 4].count == 6, let glassesColor = PlushAvatar.normalizedHex(String(parts[colorOffset + 4])),
+                parts[colorOffset + 5].count == 6, let accessoryColor = PlushAvatar.normalizedHex(String(parts[colorOffset + 5]))
             else { return nil }
             self.init(
-                color: color, eyes: Self.eyeIDs[eyeIndex], glasses: Self.glassesIDs[glassesIndex],
+                shape: shape, color: color, eyes: Self.eyeIDs[eyeIndex], glasses: Self.glassesIDs[glassesIndex],
                 accessory: Self.accessoryIDs[accessoryIndex], glassesColor: glassesColor,
                 accessoryColor: accessoryColor
             )
@@ -157,7 +200,8 @@ enum PlushAvatar {
         let side = min(900, max(16, side))
         let key = "\(side)-\(configuration.fileName)" as NSString
         if let cached = imageCache.object(forKey: key) { return cached }
-        guard let base = layer(name: "base", color: configuration.color, isFur: true),
+        let bodyLayer = configuration.shape == "circle" ? "base" : "shapes/\(configuration.shape)"
+        guard let base = layer(name: bodyLayer, color: configuration.color, isFur: true),
             let context = context(side: side)
         else { return nil }
         context.interpolationQuality = .high
@@ -170,7 +214,17 @@ enum PlushAvatar {
         ]
         for (category, kind, color) in components where kind != "none" {
             guard let component = layer(name: "\(category)/\(kind)", color: color) else { return nil }
-            context.draw(component, in: bounds)
+            let offset = category == "accessory"
+                ? PlushAvatarShape.accessoryOffset(shape: configuration.shape, accessory: kind) * CGFloat(side) / 900
+                : 0
+            let widthScale = category == "accessory"
+                ? PlushAvatarShape.accessoryWidthScale(shape: configuration.shape, accessory: kind)
+                : 1
+            let componentBounds = CGRect(
+                x: CGFloat(side) * (441.0 / 900) * (1 - widthScale), y: -offset,
+                width: CGFloat(side) * widthScale, height: CGFloat(side)
+            )
+            context.draw(component, in: componentBounds)
         }
         guard let cgImage = context.makeImage() else { return nil }
         let image = NSImage(cgImage: cgImage, size: NSSize(width: side, height: side))
@@ -180,8 +234,10 @@ enum PlushAvatar {
 
     @MainActor
     static func thumbnail(category: Category, kind: String, color: String = "#222222", side: Int = 180) -> NSImage? {
+        if category == .shape { return shapeThumbnail(kind: kind, color: color, side: side) }
         var configuration = Configuration(color: "#f5eddf", eyes: "none", glasses: "none", accessory: "none")
         switch category {
+        case .shape: configuration.shape = kind
         case .eyes: configuration.eyes = kind
         case .glasses:
             configuration.glasses = kind
@@ -191,6 +247,35 @@ enum PlushAvatar {
             configuration.accessoryColor = color
         }
         return image(for: configuration, side: side)
+    }
+
+    /// The shape grid uses the reference editor's plain silhouettes, with no ring or face.
+    @MainActor
+    static func shapeThumbnail(kind: String, color: String, side: Int = 220) -> NSImage? {
+        let side = min(900, max(16, side))
+        guard let hex = normalizedHex(color), let rgb = UInt32(hex.dropFirst(), radix: 16) else { return nil }
+        let key = "shape-silhouette-\(kind)-\(hex)-\(side)" as NSString
+        if let cached = imageCache.object(forKey: key) { return cached }
+        guard let context = context(side: side) else { return nil }
+        context.translateBy(x: CGFloat(side) / 2, y: CGFloat(side) / 2)
+        let scale = CGFloat(side) * 0.76 / 650
+        context.scaleBy(x: scale, y: -scale)
+        context.addPath(PlushAvatarShape.path(kind))
+        context.setFillColor(CGColor(
+            red: CGFloat((rgb >> 16) & 255) / 255,
+            green: CGFloat((rgb >> 8) & 255) / 255,
+            blue: CGFloat(rgb & 255) / 255, alpha: 1
+        ))
+        context.fillPath()
+        guard let cgImage = context.makeImage() else { return nil }
+        let image = NSImage(cgImage: cgImage, size: NSSize(width: side, height: side))
+        imageCache.setObject(image, forKey: key, cost: side * side * 4)
+        return image
+    }
+
+    @MainActor
+    static func shapeThumbnail(shape: String, color: String, side: Int = 220) -> NSImage? {
+        shapeThumbnail(kind: shape, color: color, side: side)
     }
 
     enum RenderError: LocalizedError {

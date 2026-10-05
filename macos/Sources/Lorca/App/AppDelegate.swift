@@ -47,10 +47,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             DispatchQueue.main.async { self?.languageChanged() }
         }
         Notifier.shared.visibleChat = { [weak self] in
-            guard let controller = self?.mainWindowController, let window = controller.window, window.isVisible, !window.isMiniaturized,
-                case let .chat(id) = controller.root.selection
-            else { return nil }
-            return id
+            self?.mainWindowController?.visibleChatID
         }
         Notifier.shared.openChat = { [weak self] id in
             guard let self else { return }
