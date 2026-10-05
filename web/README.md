@@ -1,6 +1,6 @@
 # 网站与技术文档源码
 
-这个目录保存 Lorca 的网站与中英文技术文档，随 Orbi 仓库一起维护。Orbi 的产品介绍与源码构建入口见[仓库首页](../README.md)，个人作品展示位于[李俊祎的个人网站](https://17lijunyi.github.io/)。
+这个目录保存 Orbi 仓库的网站与中英文技术文档。Orbi 的产品介绍与源码构建入口见[仓库首页](../README.md)，个人作品展示位于[李俊祎的个人网站](https://17lijunyi.github.io/)。
 
 ## 本地运行
 
@@ -27,6 +27,6 @@ bun run web
 
 ## 部署
 
-`bun run web:deploy` 构建并部署到当前 Wrangler 配置对应的 Cloudflare 账户。部署前为自己的站点设置 Worker 名称、域名与下载资源地址；现有页面和安装脚本包含 Lorca 的站点与发布入口。
+`bun run web:deploy` 构建并部署到当前 Wrangler 配置对应的 Cloudflare 账户。部署前为自己的站点设置 Worker 名称、域名与下载资源地址，并配置页面和安装脚本中的站点与发布入口。
 
 Orbi macOS App 通过根目录的 `bun run build --debug` 构建。网站和原生 App 分别打包，具体进程、账户与同步机制见[架构说明](../ARCHITECTURE.md)。
