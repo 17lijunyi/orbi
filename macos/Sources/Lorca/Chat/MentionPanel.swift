@@ -195,7 +195,21 @@ final class MentionRowView: NSView {
     }
 
     override func mouseEntered(with event: NSEvent) { onHover?(self) }
-    override func mouseUp(with event: NSEvent) { onClick?(self) }
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { onClick != nil }
+
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        guard let hit = super.hitTest(point) else { return nil }
+        return onClick == nil ? hit : self
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        if onClick == nil { super.mouseDown(with: event) }
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        guard bounds.contains(convert(event.locationInWindow, from: nil)) else { return }
+        onClick?(self)
+    }
 
     override func draw(_ dirtyRect: NSRect) {
         guard isHighlighted else { return }

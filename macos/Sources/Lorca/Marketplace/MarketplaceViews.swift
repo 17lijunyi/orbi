@@ -166,6 +166,14 @@ final class MarketplaceRow: NSView {
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError() }
 
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { onOpen != nil }
+
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        guard let hit = super.hitTest(point) else { return nil }
+        if hit is NSButton { return hit }
+        return onOpen == nil ? hit : self
+    }
+
     override func mouseDown(with event: NSEvent) {
         pressed = true
     }

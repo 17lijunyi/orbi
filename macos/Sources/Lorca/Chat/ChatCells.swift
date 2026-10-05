@@ -910,6 +910,7 @@ final class CommandBlockView: NSView {
         frame.contains(point) ? self : nil
     }
 
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { onClick != nil }
     override func mouseDown(with event: NSEvent) {}
 
     override func mouseUp(with event: NSEvent) {

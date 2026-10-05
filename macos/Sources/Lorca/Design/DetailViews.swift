@@ -340,13 +340,33 @@ final class BotRow: NSView {
 
     override func mouseEntered(with event: NSEvent) { isHovered = onClick != nil }
     override func mouseExited(with event: NSEvent) { isHovered = false }
-    override func mouseUp(with event: NSEvent) { onClick?() }
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { onClick != nil }
+
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        guard let hit = super.hitTest(point) else { return nil }
+        if hit.isDescendant(of: accessory) { return hit }
+        if onAvatarClick != nil, hit.isDescendant(of: avatar) { return avatar }
+        return onClick == nil ? hit : self
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        if onClick == nil { super.mouseDown(with: event) }
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        guard bounds.contains(convert(event.locationInWindow, from: nil)) else { return }
+        onClick?()
+    }
 
     override func draw(_ dirtyRect: NSRect) {
         guard isHovered else { return }
         NSColor.labelColor.withAlphaComponent(0.05).setFill()
         bounds.fill()
     }
+}
+
+private final class StatusIconView: NSImageView {
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 }
 
 /// Row with a leading symbol, a title/subtitle pair and a trailing state pill, or the state as
@@ -358,7 +378,7 @@ final class StatusRow: NSView, NSGestureRecognizerDelegate {
     private let subtitle = Build.label(
         "", font: Theme.Font.caption, color: .secondaryLabelColor, lines: 0)
     private let state = Build.label("", font: .systemFont(ofSize: 11, weight: .medium), alignment: .right)
-    private let stateIcon = NSImageView()
+    private let stateIcon = StatusIconView()
     private let stateClick = NSClickGestureRecognizer()
     private let stateIconClick = NSClickGestureRecognizer()
     private var stateDetail: String?
@@ -369,6 +389,20 @@ final class StatusRow: NSView, NSGestureRecognizerDelegate {
     private var textTrailingAction: NSLayoutConstraint!
 
     var onAction: (() -> Void)?
+
+    private var hasClickGesture: Bool { gestureRecognizers.contains { $0.isEnabled } }
+
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { hasClickGesture || stateDetail != nil }
+
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        guard let hit = super.hitTest(point) else { return nil }
+        if hit.isDescendant(of: action) || hit.isDescendant(of: state) || hit.isDescendant(of: stateIcon) { return hit }
+        return hasClickGesture ? self : hit
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        if !hasClickGesture, stateDetail == nil { super.mouseDown(with: event) }
+    }
 
     init() {
         super.init(frame: .zero)
@@ -799,6 +833,18 @@ final class SwitchRow: NSView {
 
     var onToggle: ((Bool) -> Void)?
     var onClick: (() -> Void)?
+
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { onClick != nil }
+
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        guard let hit = super.hitTest(point) else { return nil }
+        if hit.isDescendant(of: toggle) { return hit }
+        return onClick == nil ? hit : self
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        if onClick == nil { super.mouseDown(with: event) }
+    }
 
     init() {
         super.init(frame: .zero)

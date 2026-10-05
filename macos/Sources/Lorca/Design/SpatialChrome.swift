@@ -184,7 +184,7 @@ final class GlassWorkspaceViewController: NSViewController {
     private let sidebarTitle = Build.label("", font: .systemFont(ofSize: 25, weight: .bold))
     private let sidebarCaption = Build.label("", font: .systemFont(ofSize: 12), color: .secondaryLabelColor)
     private let actions = Build.stack([], orientation: .horizontal, spacing: 8)
-    private let notesButton = CapsuleActionButton(symbol: "note.text", caption: L("Notes", context: "capsule"), label: L("Quick Notes"))
+    private let groupButton = CapsuleActionButton(symbol: "bubble.left.and.bubble.right", caption: L("Group", context: "capsule"), label: L("Create Group Chat"))
     private let todosButton = CapsuleActionButton(symbol: "checklist", caption: L("To-dos"), label: L("To-dos"))
     private let floatingButton = CapsuleActionButton(symbol: "pip", caption: L("Float", context: "capsule"), label: L("Floating Chat"))
     private let createButton = CapsuleActionButton(symbol: nil, caption: L("Create", context: "capsule"), label: L("Create New Bot…"))
@@ -199,7 +199,6 @@ final class GlassWorkspaceViewController: NSViewController {
     private let sidebarButton = SpatialButton("sidebar.leading", label: L("Toggle Sidebar (⌘B)"), size: 17)
 
     var onTasks: (() -> Void)?
-    var onNotes: (() -> Void)?
     var onTodos: (() -> Void)?
     var onFloatingChat: (() -> Void)?
     let tasksButton = SpatialButton("terminal", label: L("Running tasks"), size: 16)
@@ -270,13 +269,13 @@ final class GlassWorkspaceViewController: NSViewController {
             dockHeight,
         ])
 
-        notesButton.onPress = { [weak self] in self?.onNotes?() }
         todosButton.onPress = { [weak self] in self?.onTodos?() }
         floatingButton.onPress = { [weak self] in self?.onFloatingChat?() }
+        groupButton.onPress = { [weak root] in root?.presentNewGroupChat() }
         createButton.onPress = { [weak root] in root?.presentNewBot() }
         let divider = HairlineView()
         divider.widthAnchor.constraint(equalToConstant: 32).isActive = true
-        let buttons = Build.stack([notesButton, todosButton, floatingButton, divider, createButton], spacing: 9)
+        let buttons = Build.stack([todosButton, floatingButton, groupButton, divider, createButton], spacing: 9)
         buttons.alignment = .centerX
         rail.addSubview(buttons)
         NSLayoutConstraint.activate([buttons.centerXAnchor.constraint(equalTo: rail.centerXAnchor), buttons.centerYAnchor.constraint(equalTo: rail.centerYAnchor)])
@@ -354,8 +353,9 @@ final class GlassWorkspaceViewController: NSViewController {
             titleLabel.stringValue = L("Teammates")
             subtitleLabel.stringValue = L("%d teammates", store.bots.count)
         }
-        notesButton.isEnabled = store.hasIdentity == true && (store.identityID != nil || store.isMock)
-        todosButton.isEnabled = notesButton.isEnabled
+        todosButton.isEnabled = store.hasIdentity == true && (store.identityID != nil || store.isMock)
+        groupButton.isEnabled = store.isConnected && store.hasIdentity == true
+        groupButton.selected = root.isTeamDrawerOpen
         createButton.isEnabled = store.isConnected && store.hasIdentity == true
         floatingButton.isEnabled = store.hasIdentity == true && root.currentOrRecentChatID != nil
         inspectorButton.isHidden = root.selection == nil || root.selection?.isSettings == true
@@ -369,7 +369,7 @@ final class GlassWorkspaceViewController: NSViewController {
 
     func languageChanged() {
         for (button, caption, label) in [
-            (notesButton, L("Notes", context: "capsule"), L("Quick Notes")),
+            (groupButton, L("Group", context: "capsule"), L("Create Group Chat")),
             (todosButton, L("To-dos"), L("To-dos")),
             (floatingButton, L("Float", context: "capsule"), L("Floating Chat")),
             (createButton, L("Create", context: "capsule"), L("Create New Bot…")),
@@ -383,8 +383,7 @@ final class GlassWorkspaceViewController: NSViewController {
         refresh()
     }
 
-    func setToolVisibility(notes: Bool, todos: Bool, chat: Bool) {
-        notesButton.selected = notes
+    func setToolVisibility(todos: Bool, chat: Bool) {
         todosButton.selected = todos
         floatingButton.selected = chat
     }

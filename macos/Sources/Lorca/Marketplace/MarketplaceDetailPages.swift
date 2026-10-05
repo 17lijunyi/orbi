@@ -357,6 +357,12 @@ private final class RailItem: NSView {
         handler()
     }
 
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        super.hitTest(point) == nil ? nil : self
+    }
+
     override func mouseDown(with event: NSEvent) {}
 
     override func accessibilityPerformPress() -> Bool {
