@@ -3,7 +3,7 @@
 <p align="center">在 Mac 上，和你的 AI 工作伙伴一起完成任务。</p>
 <p align="center">原生 macOS · 智能体协作 · 毛绒星球 DIY · 七款窗口背景</p>
 
-Orbi 是[李俊祎](https://github.com/17lijunyi)个人打造的 macOS AI 工作台。产品定位、交互与视觉设计、中文体验，以及毛绒星球 DIY、七款窗口背景和悬浮工作台等新增功能，由李俊祎独立负责并持续迭代。
+Orbi 是[李俊祎](https://github.com/17lijunyi)个人打造并持续维护的 macOS AI 工作台，围绕智能体协作，提供中文交互、毛绒星球 DIY、个性化窗口背景与悬浮聊天体验。
 
 你可以为不同工作建立智能体，在资料库中找到它们，发起单聊或协作群聊，并从同一个桌面应用管理模型服务、设备与任务。
 
@@ -99,8 +99,8 @@ open -n --env LORCA_MOCK=1 "macos/.build/bundle/debug/Orbi Dev.app"
 | `crates/agent/` | 智能体循环、模型推理与工具执行 |
 | `crates/provider-auth/` | 模型服务商认证 |
 | `crates/relay/` | 加密数据中继 |
-| `mobile/` | Lorca 手机客户端及共享核心接入 |
-| `web/` | Lorca 网站与中英文技术文档源码 |
+| `mobile/` | 手机客户端及共享核心接入 |
+| `web/` | 网站与中英文技术文档源码 |
 | `scripts/` | 构建、开发循环、本地化检查与发布脚本 |
 | `docs/` | Orbi 功能说明、智能体机制与发布说明 |
 
