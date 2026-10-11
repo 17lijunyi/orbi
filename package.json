@@ -9,6 +9,7 @@
     "dev": "bun run scripts/dev.ts",
     "test:mac-startup": "bun run scripts/test-mac-startup.ts",
     "test:workbench": "bun run scripts/test-workbench.ts",
+    "test:mac-interactions": "bun run scripts/test-mac-interactions.ts",
     "build": "bun run scripts/build.ts",
     "release-mac": "bun run scripts/release-mac.ts",
     "release-ios": "bun run scripts/release-ios.ts",

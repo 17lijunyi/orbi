@@ -39,7 +39,8 @@ final class Dictation {
     /// Listening ended: after `stop()`, a final result, or a failure.
     var onEnd: ((Failure?) -> Void)?
 
-    private(set) var isListening = false
+    private var session = DictationSession()
+    var isListening: Bool { session.isActive }
     private(set) var startedAt: Date?
     private var engine: AVAudioEngine?
     private var request: SFSpeechAudioBufferRecognitionRequest?
@@ -130,30 +131,35 @@ final class Dictation {
 
     func start() {
         guard !isListening else { return }
-        isListening = true
+        let token = session.begin()
         startedAt = Date()
-        authorize { [weak self] failure in
-            guard let self else { return }
+        authorize(for: token) { [weak self] failure in
+            guard let self, self.session.contains(token) else { return }
+            // Stop may have been pressed while the system permission dialog was open.
+            guard self.stopTimer == nil else { self.finish(nil); return }
             if let failure {
-                finish(failure)
+                self.finish(failure)
                 return
             }
             do {
-                try beginCapture()
+                try self.beginCapture(for: token)
             } catch {
-                finish(.engine(error))
+                self.finish(.engine(error))
             }
         }
     }
 
     /// Ends the audio and gives the recognizer a moment to settle its last words.
     func stop() {
-        guard isListening, stopTimer == nil else { return }
+        guard let token = session.token, stopTimer == nil else { return }
         engine?.inputNode.removeTap(onBus: 0)
         engine?.stop()
         request?.endAudio()
         stopTimer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: false) { [weak self] _ in
-            Task { @MainActor in self?.finish(nil) }
+            Task { @MainActor in
+                guard let self, self.session.contains(token) else { return }
+                self.finish(nil)
+            }
         }
     }
 
@@ -162,15 +168,17 @@ final class Dictation {
         finish(nil)
     }
 
-    private func authorize(_ completion: @escaping (Failure?) -> Void) {
-        SFSpeechRecognizer.requestAuthorization { status in
+    private func authorize(for token: UUID, _ completion: @escaping (Failure?) -> Void) {
+        SFSpeechRecognizer.requestAuthorization { [weak self] status in
             DispatchQueue.main.async {
+                guard let self, self.session.contains(token) else { return }
                 guard status == .authorized else {
                     completion(.speechDenied)
                     return
                 }
-                AVCaptureDevice.requestAccess(for: .audio) { granted in
+                AVCaptureDevice.requestAccess(for: .audio) { [weak self] granted in
                     DispatchQueue.main.async {
+                        guard let self, self.session.contains(token) else { return }
                         completion(granted ? nil : .microphoneDenied)
                     }
                 }
@@ -178,7 +186,8 @@ final class Dictation {
         }
     }
 
-    private func beginCapture() throws {
+    private func beginCapture(for token: UUID) throws {
+        guard session.contains(token) else { return }
         guard let recognizer = SFSpeechRecognizer(locale: Self.locale()), recognizer.isAvailable else { throw Failure.unavailable }
         self.recognizer = recognizer
 
@@ -198,7 +207,10 @@ final class Dictation {
             guard now.timeIntervalSince(lastLevelAt) > 0.06 else { return }
             lastLevelAt = now
             let level = Self.level(of: buffer)
-            DispatchQueue.main.async { self?.onLevel?(level) }
+            DispatchQueue.main.async {
+                guard let self, self.session.contains(token) else { return }
+                self.onLevel?(level)
+            }
         }
         engine.prepare()
         try engine.start()
@@ -206,7 +218,7 @@ final class Dictation {
 
         task = recognizer.recognitionTask(with: request) { [weak self] result, error in
             DispatchQueue.main.async {
-                guard let self, self.isListening else { return }
+                guard let self, self.session.contains(token) else { return }
                 if let result {
                     self.onTranscript?(result.bestTranscription.formattedString, result.isFinal)
                     if result.isFinal { self.finish(nil) }
@@ -234,7 +246,7 @@ final class Dictation {
 
     private func finish(_ failure: Failure?) {
         guard isListening else { return }
-        isListening = false
+        session.end()
         stopTimer?.invalidate()
         stopTimer = nil
         engine?.inputNode.removeTap(onBus: 0)

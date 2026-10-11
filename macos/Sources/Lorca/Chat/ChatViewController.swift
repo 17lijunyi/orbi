@@ -12,6 +12,8 @@ final class ChatViewController: NSViewController {
     private let jumpButton = NSButton()
 
     private var chatID: Chat.ID?
+    private var drafts = ConversationDrafts<Chat.ID, OutgoingAttachment, Bot>()
+    private var draftIdentity = DraftIdentityScope()
     private var rows: [ChatRow] = []
     /// Where each message sits in the chat's messages, so a row finds its message at once.
     private var messageIndex: [Message.ID: Int] = [:]
@@ -168,12 +170,23 @@ final class ChatViewController: NSViewController {
         if !heldElsewhere { composer.focus() }
     }
 
+    override func viewWillDisappear() {
+        composer.suspendForNavigation()
+        super.viewWillDisappear()
+    }
+
     // MARK: - Content
 
     func show(chatID newChatID: Chat.ID) {
-        let isSameChat = chatID == newChatID
-        chatID = newChatID
+        synchronizeDraftIdentity()
         guard let chat = store.chat(newChatID) else { return }
+        let isSameChat = chatID == newChatID
+        if !isSameChat {
+            composer.suspendForNavigation()
+            let draft = drafts.select(newChatID, current: composer.snapshotDraft())
+            composer.restoreDraft(draft)
+        }
+        chatID = newChatID
 
         if !isSameChat {
             stoppedNotice = nil
@@ -190,7 +203,6 @@ final class ChatViewController: NSViewController {
         emptyState.isHidden = !chat.messages.isEmpty
         emptyState.configure(chat: chat, bots: members)
 
-        if !isSameChat { composer.text = "" }
         isPinnedToBottom = true
         // Before returning, not from a block on the main queue: AppKit can display the window
         // before that block runs, which shows a long transcript from its first row for a frame.
@@ -283,7 +295,20 @@ final class ChatViewController: NSViewController {
 
     // MARK: - Store events
 
+    private func synchronizeDraftIdentity() {
+        guard draftIdentity.useIdentity(store.identityID, signedIn: store.hasIdentity == true) else { return }
+        composer.suspendForNavigation()
+        composer.restoreDraft(.init())
+        drafts = ConversationDrafts()
+        chatID = nil
+        stoppedNotice = nil
+        rows.removeAll()
+        messageIndex.removeAll()
+        if isViewLoaded { tableView.reloadData(); emptyState.isHidden = true }
+    }
+
     private func handle(_ event: StoreEvent) {
+        synchronizeDraftIdentity()
         guard let chatID else { return }
 
         switch event {
@@ -585,9 +610,24 @@ final class ChatViewController: NSViewController {
     var onRedirect: ((Chat.ID) -> Void)?
 
     private func send(_ text: String, attachments: [OutgoingAttachment], mentions: [Bot.ID]) {
+        synchronizeDraftIdentity()
         guard let chatID else { return }
+        let submittedIdentity = draftIdentity.token
+        let draft = composer.submittedDraft ?? ComposerView.Draft(
+            text: text, files: attachments, mentions: mentions.compactMap { self.store.bot($0) })
         isPinnedToBottom = true
-        let destination = store.send(text, attachments: attachments, mentions: mentions, in: chatID)
+        let destination = store.send(text, attachments: attachments, mentions: mentions, in: chatID) { [weak self] result in
+            guard let self else { return }
+            synchronizeDraftIdentity()
+            guard draftIdentity.token == submittedIdentity, case let .failure(error) = result else { return }
+            // A late failure belongs to its original chat, even when a different chat is open.
+            if drafts.active == chatID { composer.suspendForNavigation() }
+            if let restored = drafts.recover(draft, for: chatID, current: composer.snapshotDraft()) {
+                composer.restoreDraft(restored)
+            }
+            let title = store.chat(chatID).map { self.store.title(for: $0) } ?? L("Chat")
+            composer.reportSendFailure(error, message: L("Your draft was restored in %@. New text and attachments were kept.", title))
+        }
         composer.isResponding = store.isResponding(in: chatID)
         if destination != chatID { onRedirect?(destination) }
     }

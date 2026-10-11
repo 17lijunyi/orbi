@@ -128,10 +128,11 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         if floatingWindow?.isVisible == true, floatingWindow?.window?.isKeyWindow == true {
             return floatingContent?.chatID
         }
-        if window?.isVisible == true, window?.isMiniaturized != true, let selectedChatID {
+        if window?.isVisible == true, window?.isMiniaturized != true,
+            window?.isKeyWindow == true, let selectedChatID {
             return selectedChatID
         }
-        return floatingWindow?.isVisible == true ? floatingContent?.chatID : nil
+        return nil
     }
 
     // MARK: - Floating workbench

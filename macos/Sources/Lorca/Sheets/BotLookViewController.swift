@@ -96,6 +96,7 @@ final class BotLookViewController: NSViewController, NSTextFieldDelegate {
     private var customColorPanel: NSView?
     private var customColorField: NSTextField?
     private var customColorHint: NSTextField?
+    private var isSaving = false
 
     init(botID: Bot.ID) {
         self.botID = botID
@@ -165,6 +166,22 @@ final class BotLookViewController: NSViewController, NSTextFieldDelegate {
         rebuildOptions()
         rebuildPalette()
         refresh()
+    }
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        guard botID != nil else { return }
+        store.observe(self) { [weak self] event in
+            guard let self else { return }
+            switch event {
+            case .snapshotReplaced, .rosterChanged, .connectionChanged:
+                if keepsExistingImage, let botID, let bot = store.bot(botID) {
+                    existingImage = store.avatarImage(for: bot)
+                }
+                refresh()
+            default: break
+            }
+        }
     }
 
     private func buildControls(in pane: NSView) {
@@ -256,7 +273,7 @@ final class BotLookViewController: NSViewController, NSTextFieldDelegate {
     }
 
     private func buildPreview(in pane: NSView) {
-        let close = iconButton("xmark", title: "取消并关闭", identifier: "close") { [weak self] in self?.dismiss(nil) }
+        let close = iconButton("xmark", title: "取消并关闭", identifier: "close") { [weak self] in self?.cancelOperation(nil) }
         pane.addSubview(close)
         let name = NSTextField(labelWithString: editorTitle)
         name.translatesAutoresizingMaskIntoConstraints = false
@@ -586,7 +603,9 @@ final class BotLookViewController: NSViewController, NSTextFieldDelegate {
         if let importedImage { preview.image = importedImage.image }
         else if keepsExistingImage { preview.image = existingImage }
         else { preview.image = PlushAvatar.image(for: draft, side: 600) }
-        saveButton.isEnabled = keepsExistingImage || preview.image != nil
+        saveButton.isEnabled = !isSaving && (botID == nil || store.isConnected)
+            && (keepsExistingImage || preview.image != nil)
+        saveButton.toolTip = botID != nil && !store.isConnected ? "与本机服务的连接已断开，重新连接后可继续保存。" : nil
         for (index, button) in tabs.enumerated() { button.isChosen = index == selectedTab.rawValue }
         for item in optionButtons { item.button.isChosen = !keepsExistingImage && importedImage == nil && item.id == selectedOption }
         for item in swatches { item.button.isChosen = item.hex.lowercased() == selectedColor.lowercased() }
@@ -621,29 +640,63 @@ final class BotLookViewController: NSViewController, NSTextFieldDelegate {
     }
 
     private func save() {
+        guard !isSaving, botID == nil || store.isConnected else { return }
         if customColorPanel != nil {
             applyCustomColor()
             guard customColorPanel == nil else { return }
         }
-        do {
-            if let onSave {
+        if let onSave {
+            setSaving(true)
+            do {
                 try onSave(draft.normalized, importedImage?.url)
-            } else if let botID, store.bot(botID) != nil {
-                if let importedImage {
-                    store.setBotAvatar(botID, fileURL: importedImage.url)
-                } else if !keepsExistingImage {
-                    let url = try PlushAvatar.writePNG(for: draft, side: Int(Self.imageSide))
-                    store.setBotAvatar(botID, fileURL: url)
-                }
+                finishSaving(.success(()))
+            } catch {
+                finishSaving(.failure(error))
             }
-        } catch {
-            showError("形象未能保存，请重试。\n\(error.localizedDescription)")
             return
         }
-        dismiss(nil)
+        guard let botID, store.bot(botID) != nil else {
+            showError("这个智能体已被删除，无法保存形象。")
+            return
+        }
+        if keepsExistingImage { dismiss(nil); return }
+        let imageURL: URL
+        do {
+            imageURL = try importedImage?.url ?? PlushAvatar.writePNG(for: draft, side: Int(Self.imageSide))
+        } catch {
+            showError("形象未能保存，当前搭配已保留，请重试。\n\(error.localizedDescription)")
+            return
+        }
+        setSaving(true)
+        store.setBotAvatar(botID, fileURL: imageURL) { [weak self] result in
+            self?.finishSaving(result)
+        }
+    }
+
+    private func setSaving(_ saving: Bool) {
+        isSaving = saving
+        func updateButtons(in view: NSView) {
+            for subview in view.subviews {
+                if let button = subview as? PlushEditorButton { button.isEnabled = !saving }
+                updateButtons(in: subview)
+            }
+        }
+        updateButtons(in: view)
+        saveButton.title = saving ? "正在保存…" : "保存"
+        refresh()
+    }
+
+    private func finishSaving(_ result: Result<Void, Error>) {
+        setSaving(false)
+        switch result {
+        case .success: dismiss(nil)
+        case .failure(let error):
+            showError("形象未能保存，当前搭配已保留，请重试。\n\(error.localizedDescription)")
+        }
     }
 
     override func cancelOperation(_ sender: Any?) {
+        guard !isSaving else { return }
         if customColorPanel != nil { closeCustomColor() }
         else { dismiss(nil) }
     }

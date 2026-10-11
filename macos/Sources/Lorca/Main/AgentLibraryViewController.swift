@@ -11,6 +11,8 @@ final class AgentLibraryViewController: NSViewController, NSSearchFieldDelegate 
     private let filter = SpatialButton("line.3.horizontal.decrease", label: L("Filter teammates"), size: 17)
     private var onlineOnly = false
     private var localOnly = false
+    private var draftIdentity = DraftIdentityScope()
+    private var visit = PageVisit()
     let composer = ComposerView()
     var onOpen: ((Chat.ID) -> Void)?
     var onNewBot: (() -> Void)?
@@ -51,10 +53,36 @@ final class AgentLibraryViewController: NSViewController, NSSearchFieldDelegate 
             empty.widthAnchor.constraint(lessThanOrEqualToConstant: 350),
         ])
         composer.onSend = { [weak self] text, attachments, mentions in
-            guard let self, let bot = self.store.bots.first else { self?.onNewBot?(); return }
+            guard let self else { return }
+            let ownerBeforeSend = draftIdentity.token
+            synchronizeDraftIdentity()
+            guard draftIdentity.token == ownerBeforeSend else { return }
+            let submittedIdentity = draftIdentity.token
+            let submittedVisit = visit.token
+            let draft = composer.submittedDraft ?? ComposerView.Draft(
+                text: text, files: attachments, mentions: mentions.compactMap { self.store.bot($0) })
+            guard let bot = self.store.bots.first else {
+                composer.restoreDraft(composer.snapshotDraft().recovering(draft))
+                onNewBot?()
+                return
+            }
             let chat = self.store.dm(with: bot.id)
-            let destination = self.store.send(text, attachments: attachments, mentions: mentions, in: chat)
-            self.onOpen?(destination)
+            self.store.send(text, attachments: attachments, mentions: mentions, in: chat) { [weak self] result in
+                guard let self else { return }
+                synchronizeDraftIdentity()
+                guard draftIdentity.token == submittedIdentity else { return }
+                switch result {
+                case .success:
+                    // Keep the library visible until the CLI has accepted its message.
+                    if visit.contains(submittedVisit), view.window?.isVisible == true, !view.isHiddenOrHasHiddenAncestor {
+                        onOpen?(chat)
+                    }
+                case let .failure(error):
+                    composer.suspendForNavigation()
+                    composer.restoreDraft(composer.snapshotDraft().recovering(draft))
+                    composer.reportSendFailure(error, message: L("Your draft was restored in the library. New text and attachments were kept."))
+                }
+            }
         }
         view = container
     }
@@ -64,7 +92,7 @@ final class AgentLibraryViewController: NSViewController, NSSearchFieldDelegate 
         rebuild()
         store.observe(self) { [weak self] event in
             switch event {
-            case .snapshotReplaced, .rosterChanged, .connectionChanged: self?.rebuild()
+            case .snapshotReplaced, .rosterChanged, .connectionChanged, .identityChanged: self?.rebuild()
             default: break
             }
         }
@@ -72,11 +100,23 @@ final class AgentLibraryViewController: NSViewController, NSSearchFieldDelegate 
 
     override func viewDidLayout() { super.viewDidLayout(); layoutCards() }
 
+    override func viewWillAppear() {
+        super.viewWillAppear()
+        visit.appear()
+    }
+
+    override func viewWillDisappear() {
+        visit.leave()
+        composer.suspendForNavigation()
+        super.viewWillDisappear()
+    }
+
     func controlTextDidChange(_ obj: Notification) { rebuild() }
     func focusSearch() { view.window?.makeFirstResponder(search) }
 
     private func rebuild() {
         guard isViewLoaded else { return }
+        synchronizeDraftIdentity()
         let query = search.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
         let bots = store.bots.filter { bot in
             let device = store.device(bot.runnerID)
@@ -105,6 +145,12 @@ final class AgentLibraryViewController: NSViewController, NSSearchFieldDelegate 
             composer.configure(placeholder: L("Create a teammate to get started"), bots: [])
         }
         layoutCards()
+    }
+
+    private func synchronizeDraftIdentity() {
+        guard draftIdentity.useIdentity(store.identityID, signedIn: store.hasIdentity == true) else { return }
+        composer.suspendForNavigation()
+        composer.restoreDraft(.init())
     }
 
     private func layoutCards() {

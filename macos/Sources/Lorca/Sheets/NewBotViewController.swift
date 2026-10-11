@@ -32,6 +32,9 @@ final class NewBotViewController: SheetViewController {
     private var looks = PlushAvatar.randomConfigurations(count: 8)
     private var lookButtons: [NewBotLookButton] = []
     private var selectedLook = 0
+    private var selectedRunnerID: Device.ID?
+    private var isSubmitting = false
+    private var submissionError: String?
 
     private let onCreate: (Bot.ID) -> Void
 
@@ -63,11 +66,8 @@ final class NewBotViewController: SheetViewController {
         }
 
         runnerPopup.translatesAutoresizingMaskIntoConstraints = false
-        for device in store.runners {
-            let title =
-                device.isThisDevice ? L("%@ (this computer)", device.name) : device.name
-            runnerPopup.addItem(withTitle: title)
-        }
+        selectedRunnerID = store.runners.first?.id
+        rebuildRunners()
         runnerPopup.target = self
         runnerPopup.action = #selector(runnerChanged)
 
@@ -100,8 +100,35 @@ final class NewBotViewController: SheetViewController {
         }
 
         setButtons(confirm: L("Create Bot"))
-        confirmButton.isEnabled = false
-        runnerChanged()
+        updateState()
+    }
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        store.observe(self) { [weak self] event in
+            guard let self else { return }
+            switch event {
+            case .snapshotReplaced, .rosterChanged:
+                rebuildRunners()
+                updateState()
+            case .connectionChanged:
+                updateState()
+            default: break
+            }
+        }
+    }
+
+    private func rebuildRunners() {
+        runnerPopup.removeAllItems()
+        for device in store.runners {
+            let title = device.isThisDevice ? L("%@ (this computer)", device.name) : device.name
+            let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+            item.representedObject = device.id
+            runnerPopup.menu?.addItem(item)
+        }
+        // Keep the chosen identity, even if its row disappears. Never silently choose
+        // the device that happens to take the removed row's former index.
+        runnerPopup.select(runnerPopup.itemArray.first { $0.representedObject as? Device.ID == selectedRunnerID })
     }
 
     private func labeled(_ title: String, _ control: NSView, topAligned: Bool = false) -> NSView {
@@ -199,7 +226,7 @@ final class NewBotViewController: SheetViewController {
 
     @objc private func providerChanged() {
         reloadModels()
-        runnerChanged()
+        updateState()
     }
 
     private func reloadModels() {
@@ -215,14 +242,35 @@ final class NewBotViewController: SheetViewController {
     }
 
     @objc private func runnerChanged() {
-        let runners = store.runners
-        guard runners.indices.contains(runnerPopup.indexOfSelectedItem) else {
-            note.stringValue = L("No Runner is paired. Bots run on a Device with macOS, Linux, or Windows.")
-            note.textColor = .systemOrange
-            confirmButton.isEnabled = false
+        selectedRunnerID = runnerPopup.selectedItem?.representedObject as? Device.ID
+        updateState()
+    }
+
+    private func updateState() {
+        let runner = store.runners.first { $0.id == selectedRunnerID }
+        let hasName = !nameField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        confirmButton.isEnabled = !isSubmitting && store.isConnected && hasName && runner != nil
+        confirmButton.title = isSubmitting ? "正在创建…" : L("Create Bot")
+        cancelButton?.isEnabled = !isSubmitting
+        for control in [nameField, descriptionField] { control.isEnabled = !isSubmitting }
+        for control in [runnerPopup, providerPopup, modelPopup, thinkingPopup] { control.isEnabled = !isSubmitting }
+        for case let button as NSButton in lookRow.arrangedSubviews { button.isEnabled = !isSubmitting }
+        if let submissionError {
+            note.stringValue = submissionError
+            note.textColor = .systemRed
             return
         }
-        let runner = runners[runnerPopup.indexOfSelectedItem]
+        guard store.isConnected else {
+            note.stringValue = "与本机服务的连接已断开，重新连接后可继续创建。"
+            note.textColor = .systemOrange
+            return
+        }
+        guard let runner else {
+            note.stringValue = L("No Runner is paired. Bots run on a Device with macOS, Linux, or Windows.")
+            if !store.runners.isEmpty { note.stringValue = "原先选择的运行设备已不可用，请重新选择。" }
+            note.textColor = .systemOrange
+            return
+        }
         let provider = selectedProvider
         if store.credential(for: provider)?.isConnected == true {
             note.stringValue = L("%@ is connected. Turns run on %@.", provider.rawValue, runner.name)
@@ -236,41 +284,61 @@ final class NewBotViewController: SheetViewController {
 
     override func confirmTapped() {
         let name = nameField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !name.isEmpty, store.runners.indices.contains(runnerPopup.indexOfSelectedItem),
+        guard !isSubmitting, store.isConnected, !name.isEmpty,
+            let runner = store.runners.first(where: { $0.id == selectedRunnerID }),
             looks.indices.contains(selectedLook) else { return }
         let look = Self.legacyLooks[selectedLook]
         let description = descriptionField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
         let avatarURL: URL
+        submissionError = nil
         do {
             avatarURL = try PlushAvatar.writePNG(for: looks[selectedLook], side: 512)
         } catch {
-            note.stringValue = "形象保存失败，请重试。\n\(error.localizedDescription)"
-            note.textColor = .systemRed
+            submissionError = "形象保存失败，请重试。\n\(error.localizedDescription)"
+            updateState()
             fitSheetToContent()
             return
         }
 
+        isSubmitting = true
+        updateState()
+        var createdBotID: Bot.ID?
         let botID = store.createBot(
             name: name,
             description: description,
             symbolName: look.symbolName,
             accent: look.accent,
-            runnerID: store.runners[runnerPopup.indexOfSelectedItem].id,
+            runnerID: runner.id,
             provider: selectedProvider,
             model: selectedModel,
             thinking: selectedThinking,
             avatarFileURL: avatarURL
-        )
-        dismiss(nil)
-        onCreate(botID)
+        ) { [weak self] result in
+            guard let self else { return }
+            self.isSubmitting = false
+            switch result {
+            case .success:
+                guard let createdBotID else { return }
+                self.dismiss(nil)
+                self.onCreate(createdBotID)
+            case .failure(let error):
+                self.submissionError = "智能体未能创建，填写的内容已保留，请重试。\n\(error.localizedDescription)"
+                self.updateState()
+                self.fitSheetToContent()
+            }
+        }
+        createdBotID = botID
+    }
+
+    override func dismissSheet() {
+        guard !isSubmitting else { return }
+        super.dismissSheet()
     }
 }
 
 extension NewBotViewController: NSTextFieldDelegate {
     func controlTextDidChange(_ obj: Notification) {
-        confirmButton.isEnabled = !nameField.stringValue
-            .trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            && store.runners.indices.contains(runnerPopup.indexOfSelectedItem)
+        updateState()
     }
 }
 

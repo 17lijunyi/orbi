@@ -141,6 +141,7 @@ final class ComposerButton: NSButton {
 }
 
 final class ComposerView: NSView {
+    typealias Draft = MessageDraft<OutgoingAttachment, Bot>
     private let field = BackgroundView()
     /// Liquid glass under the pill on macOS 26+; the field is then a clear view that draws
     /// the hairline edge over it, as the phone composer does. Elsewhere the field is filled.
@@ -182,7 +183,7 @@ final class ComposerView: NSView {
     /// While listening the field shows the pill; the transcript lands at this caret location
     /// when the user stops or sends, the way Grok Bot commits a recording.
     private let pill = RecordingPill()
-    private var dictationLocation = 0
+    private var dictationRange = NSRange(location: 0, length: 0)
     private var dictationTranscript = ""
     private var pendingSend = false
     private var dictationTimer: Timer?
@@ -190,6 +191,9 @@ final class ComposerView: NSView {
     /// commands would not reach it.
     private var escapeMonitor: Any?
     private var placeholder = ""
+    /// Available during `onSend`, including the original whitespace and selected bot IDs.
+    private(set) var submittedDraft: Draft?
+    private var returningFromInteraction = false
 
     /// The text, its files, and the bots its `@Name`s picked from the menu, by id.
     var onSend: ((String, [OutgoingAttachment], [Bot.ID]) -> Void)?
@@ -222,6 +226,42 @@ final class ComposerView: NSView {
             pickedMentions = []
             handleTextChange()
         }
+    }
+
+    func snapshotDraft() -> Draft {
+        Draft(text: textView.string, files: attachments, mentions: pickedMentions)
+    }
+
+    func restoreDraft(_ draft: Draft) {
+        // Undo actions carry ranges and text from the previous document. They must not cross
+        // conversation boundaries (or resurrect a just-submitted message in another chat).
+        textView.undoManager?.removeAllActions()
+        textView.string = draft.text
+        attachments = draft.files
+        pickedMentions = draft.mentions
+        textView.setSelectedRange(NSRange(location: (draft.text as NSString).length, length: 0))
+        updateAttachments()
+        handleTextChange()
+        mentions.dismiss()
+    }
+
+    /// Keep partial speech with the old conversation, and cancel any delayed voice send.
+    func suspendForNavigation() {
+        mentions.dismiss()
+        guard dictation.isListening else { return }
+        pendingSend = false
+        returningFromInteraction = true
+        dictation.cancel()
+        returningFromInteraction = false
+    }
+
+    func reportSendFailure(_ error: Error, message: String) {
+        guard let window = window ?? NSApp.keyWindow else { return }
+        let alert = NSAlert()
+        alert.messageText = L("Message could not be sent")
+        alert.informativeText = message + "\n\n" + error.localizedDescription
+        alert.addButton(withTitle: L("OK"))
+        alert.beginSheetModal(for: window)
     }
 
     init() {
@@ -393,8 +433,7 @@ final class ComposerView: NSView {
     }
 
     func endInteraction() {
-        mentions.dismiss()
-        if dictation.isListening { cancelDictation() }
+        suspendForNavigation()
     }
 
     func configure(placeholder: String, bots: [Bot]) {
@@ -419,6 +458,14 @@ final class ComposerView: NSView {
             return
         }
         guard hasContent else { return }
+        guard attachments.count <= OutgoingAttachment.maxCount else {
+            let error = NSError(domain: "Orbi.Composer", code: 1, userInfo: [
+                NSLocalizedDescriptionKey: L("At most %d files per message.", OutgoingAttachment.maxCount)
+            ])
+            reportSendFailure(error, message: L("Your draft is still here. Remove some attachments and try again."))
+            return
+        }
+        let draft = snapshotDraft()
         let value = textView.string.trimmingCharacters(in: .whitespacesAndNewlines)
         let files = attachments
         // A pick counts while its `@Name` is still in the text.
@@ -429,6 +476,8 @@ final class ComposerView: NSView {
         mentions.dismiss()
         updateAttachments()
         handleTextChange()
+        submittedDraft = draft
+        defer { submittedDraft = nil }
         onSend?(value, files, mentioned)
     }
 
@@ -537,7 +586,7 @@ final class ComposerView: NSView {
             commitDictation()
             updateButtons()
             updateLayout()
-            focus()
+            if !returningFromInteraction { focus() }
             if let failure {
                 pendingSend = false
                 report(failure)
@@ -556,11 +605,9 @@ final class ComposerView: NSView {
         }
         focus()
         // The words go where the caret is, after a space when they follow other text.
-        let caret = textView.selectedRange()
-        if caret.length > 0 {
-            textView.insertText("", replacementRange: caret)
-        }
-        dictationLocation = textView.selectedRange().location
+        // Keep selected text intact until speech is committed; Escape or denied permission
+        // must not delete the selection merely because Dictate was pressed.
+        dictationRange = textView.selectedRange()
         dictationTranscript = ""
         pendingSend = false
         pill.reset()
@@ -595,14 +642,15 @@ final class ComposerView: NSView {
         dictationTranscript = ""
         guard !transcript.isEmpty else { return }
         let text = textView.string as NSString
-        let location = min(dictationLocation, text.length)
+        let location = min(dictationRange.location, text.length)
+        let range = NSRange(location: location, length: min(dictationRange.length, text.length - location))
         var replacement = transcript
         if location > 0, let scalar = UnicodeScalar(text.character(at: location - 1)),
             !CharacterSet.whitespacesAndNewlines.contains(scalar)
         {
             replacement = " " + transcript
         }
-        textView.insertText(replacement, replacementRange: NSRange(location: location, length: 0))
+        textView.insertText(replacement, replacementRange: range)
         handleTextChange()
     }
 
