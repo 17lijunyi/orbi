@@ -9,15 +9,21 @@ import UserNotifications
 final class Notifier: NSObject, UNUserNotificationCenterDelegate {
     static let shared = Notifier()
 
-    /// The chat in the main window, when the window is on screen.
+    /// The chat in the focused main window or floating chat panel.
     var visibleChat: () -> Chat.ID? = { nil }
     /// Opens a chat from a clicked notification.
     var openChat: (Chat.ID) -> Void = { _ in }
 
     private let store = AppStore.shared
+    private let isApplicationActive: @MainActor () -> Bool
     private var didAsk = false
     private var started = false
     private var pendingPermissions: Set<Message.ID> = []
+
+    init(isApplicationActive: @escaping @MainActor () -> Bool = { NSApp.isActive }) {
+        self.isApplicationActive = isApplicationActive
+        super.init()
+    }
 
     /// `UNUserNotificationCenter` needs a bundle; a bare binary (`swift run`) has none.
     private var center: UNUserNotificationCenter? {
@@ -37,7 +43,11 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
                 self.rememberPermissions()
                 self.watchingChanged()
             case let .messageAdded(chatID, messageID), let .messageChanged(chatID, messageID):
+                if self.watchedChat == chatID { self.store.markRead(chatID) }
                 self.permissionChanged(chatID, messageID)
+            case .chatsChanged:
+                // Unread counts can arrive in roster metadata after the message itself.
+                if let watched = self.watchedChat { self.store.markRead(watched) }
             case let .messageRemoved(_, messageID): self.clearPermission(messageID)
             case let .turnFinished(chatID, botID, startedAt): self.turnFinished(chatID, botID, startedAt)
             default: break
@@ -53,7 +63,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
 
     /// The chat the user is looking at: the app is frontmost and its window shows the chat.
     private var watchedChat: Chat.ID? {
-        NSApp.isActive ? visibleChat() : nil
+        isApplicationActive() ? visibleChat() : nil
     }
 
     /// Call when the selection or the window's visibility changes.
@@ -62,7 +72,10 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         let watched = watchedChat
         store.setWatchedChat(watched)
         // Whatever was posted for the chat now on screen has been seen.
-        if let watched { clear(watched) }
+        if let watched {
+            store.markRead(watched)
+            clear(watched)
+        }
     }
 
     // MARK: - Posting

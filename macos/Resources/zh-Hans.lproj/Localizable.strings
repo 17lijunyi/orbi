@@ -862,3 +862,7 @@
 "Your team starts here.\nCreate your first teammate with the planet button." = "从这里组建你的团队。\n点击胶囊底部的星球，创建第一位智能体。";
 "Your workspace" = "你的工作空间";
 "Zoom" = "缩放";
+"Message could not be sent" = "消息未能发送";
+"Your draft is still here. Remove some attachments and try again." = "草稿已保留，请移除部分附件后重试。";
+"Your draft was restored in %@. New text and attachments were kept." = "草稿已恢复到“%@”，新输入的文字和附件也已保留。";
+"Your draft was restored in the library. New text and attachments were kept." = "草稿已恢复到主页输入框，新输入的文字和附件也已保留。";

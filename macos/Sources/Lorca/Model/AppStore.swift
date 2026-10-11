@@ -81,6 +81,7 @@ final class AppStore {
     private(set) var hasIdentity: Bool?
     private(set) var isIdentityDevice = false
     private(set) var identityID: String?
+    private var identityGeneration = 0
     private(set) var relayConnected = false
     /// The relay refused this build's protocol: it syncs again once Lorca is updated.
     private(set) var relayUpdateRequired = false
@@ -197,6 +198,7 @@ final class AppStore {
 
     func stop() {
         finishStartup()
+        attachmentRetryTask?.cancel()
         client.disconnect()
         launcher.stop()
     }
@@ -234,6 +236,7 @@ final class AppStore {
             isApplyingBootstrap = false
             isBootstrapping = false
             isConnected = true
+            resetAttachmentRetries()
             finishStartup()
             emit(.snapshotReplaced)
             emit(.connectionChanged)
@@ -248,6 +251,12 @@ final class AppStore {
     }
 
     private func apply(snapshot: Wire.Snapshot) {
+        if identityID != snapshot.identityId || hasIdentity != snapshot.hasIdentity {
+            identityGeneration += 1
+            resetAttachmentRetries()
+            avatarImages.removeAll()
+            attachmentURLs.removeAll()
+        }
         hasIdentity = snapshot.hasIdentity
         isIdentityDevice = snapshot.isIdentityDevice
         identityID = snapshot.identityId
@@ -388,10 +397,17 @@ final class AppStore {
             relayUpdateRequired = status.updateRequired ?? false
             relayError = status.error?.message
             relayURL = status.url ?? relayURL
+            if status.connected { resetAttachmentRetries() }
             emit(.rosterChanged)
 
         case "identity.changed":
             guard let payload = decode(Wire.IdentityChanged.self) else { return }
+            if hasIdentity != payload.hasIdentity {
+                identityGeneration += 1
+                resetAttachmentRetries()
+                avatarImages.removeAll()
+                attachmentURLs.removeAll()
+            }
             hasIdentity = payload.hasIdentity
             emit(.identityChanged)
 
@@ -529,23 +545,57 @@ final class AppStore {
     func setConnected(_ connected: Bool) {
         guard isConnected != connected else { return }
         isConnected = connected
+        if connected { resetAttachmentRetries() }
         emit(.connectionChanged)
     }
 
     // MARK: - Requests
 
-    /// Fire-and-forget request. A failure is logged and the store re-syncs from the CLI, so an
-    /// optimistic change that the CLI rejected gets rolled back.
-    private func perform(_ method: String, _ params: [String: Any] = [:]) {
-        guard !isMock else { return }
+    /// Confirms mutations with the CLI. A lost acknowledgement is reconciled against the
+    /// snapshot before restoring a draft, so an already-saved operation is not offered twice.
+    private func perform(
+        _ method: String, _ params: [String: Any] = [:],
+        completion: ((Result<Void, Error>) -> Void)? = nil,
+        rollback: (() -> Void)? = nil,
+        isConfirmed: ((Wire.Snapshot) -> Bool)? = nil
+    ) {
+        let account = identityID
+        let generation = identityGeneration
         Task {
+            guard account == identityID, generation == identityGeneration else {
+                completion?(.failure(CLIClient.RequestError(message: "账号已切换，请重新操作。")))
+                return
+            }
+            guard !isMock else { completion?(.success(())); return }
             do {
                 _ = try await client.request(method, params)
+                guard account == identityID, generation == identityGeneration else {
+                    completion?(.failure(CLIClient.RequestError(message: "账号已切换，请重新操作。")))
+                    return
+                }
+                completion?(.success(()))
             } catch {
                 NSLog("\(method) failed: \(error.localizedDescription)")
-                if let snapshot = try? await client.request("bootstrap", as: Wire.Snapshot.self) {
-                    apply(snapshot: snapshot)
+                guard account == identityID, generation == identityGeneration else {
+                    completion?(.failure(error))
+                    return
                 }
+                if let snapshot = try? await client.request("bootstrap", as: Wire.Snapshot.self),
+                    account == identityID, generation == identityGeneration, snapshot.identityId == account
+                {
+                    let confirmed = isConfirmed?(snapshot) == true
+                    // Remove rejected optimistic data before merging older local transcript
+                    // pages. The authoritative snapshot then wins over any rollback values.
+                    if !confirmed { rollback?() }
+                    apply(snapshot: snapshot)
+                    if confirmed {
+                        completion?(.success(()))
+                        return
+                    }
+                } else if account == identityID, generation == identityGeneration {
+                    rollback?()
+                }
+                completion?(.failure(error))
             }
         }
     }
@@ -604,7 +654,8 @@ final class AppStore {
         thinking: String? = nil,
         templateID: BotTemplate.ID? = nil,
         greeting: String? = nil,
-        avatarFileURL: URL? = nil
+        avatarFileURL: URL? = nil,
+        completion: ((Result<Void, Error>) -> Void)? = nil
     ) -> Bot.ID {
         let avatar: Attachment?
         if let avatarFileURL {
@@ -657,7 +708,19 @@ final class AppStore {
             if let avatar, let avatarFileURL {
                 params["avatar"] = ["id": avatar.id, "path": avatarFileURL.path, "name": avatar.name, "mime": avatar.mime]
             }
-            perform("bots.create", params)
+            perform("bots.create", params, completion: completion, rollback: { [weak self] in
+                guard let self else { return }
+                bots.removeAll { $0.id == bot.id }
+                chats.removeAll { $0.id == chatID }
+                if let avatar {
+                    avatarImages[avatar.id] = nil
+                    attachmentURLs[avatar.id] = nil
+                }
+                emit(.rosterChanged)
+                emit(.chatsChanged)
+            }, isConfirmed: { snapshot in snapshot.bots.contains { $0.id == bot.id } })
+        } else {
+            Task { completion?(.success(())) }
         }
         return bot.id
     }
@@ -704,8 +767,17 @@ final class AppStore {
     /// A custom profile image from a file on this computer (nil removes the current one). The CLI
     /// copies it into its store, uploads it as a `file` blob, and names it in the roster, which
     /// comes back as the bot's `avatar` for every Device.
-    func setBotAvatar(_ id: Bot.ID, fileURL: URL?) {
-        guard bots.contains(where: { $0.id == id }) else { return }
+    func setBotAvatar(_ id: Bot.ID, fileURL: URL?, completion: ((Result<Void, Error>) -> Void)? = nil) {
+        guard let original = bot(id) else {
+            Task { completion?(.failure(CLIClient.RequestError(message: "智能体已不存在。"))) }
+            return
+        }
+        let rollback = { [weak self] in
+            guard let self, let index = bots.firstIndex(where: { $0.id == id }) else { return }
+            bots[index].avatar = original.avatar
+            emit(.rosterChanged)
+            emit(.chatsChanged)
+        }
         if let fileURL {
             let attachment = Attachment(id: "att-\(UUID().uuidString.lowercased().replacingOccurrences(of: "-", with: "").prefix(12))", name: fileURL.lastPathComponent, mime: "image/png", size: 0)
             if let image = NSImage(contentsOf: fileURL) { avatarImages[attachment.id] = image }
@@ -713,12 +785,14 @@ final class AppStore {
             if let index = bots.firstIndex(where: { $0.id == id }) { bots[index].avatar = attachment }
             emit(.rosterChanged)
             emit(.chatsChanged)
-            perform("bots.update", ["id": id, "avatar": ["id": attachment.id, "path": fileURL.path, "name": attachment.name, "mime": attachment.mime]])
+            perform("bots.update", ["id": id, "avatar": ["id": attachment.id, "path": fileURL.path, "name": attachment.name, "mime": attachment.mime]], completion: completion, rollback: rollback,
+                isConfirmed: { snapshot in snapshot.bots.first { $0.id == id }?.avatar?.id == attachment.id })
         } else {
             if let index = bots.firstIndex(where: { $0.id == id }) { bots[index].avatar = nil }
             emit(.rosterChanged)
             emit(.chatsChanged)
-            perform("bots.update", ["id": id, "avatar": NSNull()])
+            perform("bots.update", ["id": id, "avatar": NSNull()], completion: completion, rollback: rollback,
+                isConfirmed: { snapshot in guard let bot = snapshot.bots.first(where: { $0.id == id }) else { return false }; return bot.avatar == nil })
         }
     }
 
@@ -1077,9 +1151,13 @@ final class AppStore {
     /// bot acts on (it can message that bot); the message itself stays here. `mentions` are the
     /// bots picked from the `@` menu, which the CLI hands the bot by id.
     @discardableResult
-    func send(_ text: String, attachments: [OutgoingAttachment] = [], mentions: [Bot.ID] = [], in chatID: Chat.ID) -> Chat.ID {
+    func send(_ text: String, attachments: [OutgoingAttachment] = [], mentions: [Bot.ID] = [], in chatID: Chat.ID,
+        completion: ((Result<Void, Error>) -> Void)? = nil) -> Chat.ID {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty || !attachments.isEmpty, let chat = chat(chatID) else { return chatID }
+        guard !trimmed.isEmpty || !attachments.isEmpty, let chat = chat(chatID) else {
+            Task { completion?(.failure(CLIClient.RequestError(message: "聊天不存在或消息为空。"))) }
+            return chatID
+        }
 
         // The files are known here already; the CLI keeps the ids the bubble shows.
         for outgoing in attachments { attachmentURLs[outgoing.attachment.id] = outgoing.url }
@@ -1088,6 +1166,7 @@ final class AppStore {
 
         if isMock {
             replyEngine?.respond(to: trimmed, in: chat)
+            Task { completion?(.success(())) }
             return chatID
         }
 
@@ -1118,7 +1197,16 @@ final class AppStore {
                         "height": outgoing.attachment.height as Any,
                     ]
                 },
-            ])
+            ], completion: completion, rollback: { [weak self] in
+                guard let self else { return }
+                if let index = chats.firstIndex(where: { $0.id == chatID }) {
+                    chats[index].messages.removeAll { $0.id == message.id }
+                    emit(.messageRemoved(chatID, message.id))
+                }
+                runningJobs.removeAll { $0.id == "pending:\(chatID)" }
+                emit(.respondingChanged(chatID))
+                emit(.chatsChanged)
+            }, isConfirmed: { snapshot in snapshot.chats.first { $0.id == chatID }?.messages?.contains { $0.id == message.id } == true })
         return chatID
     }
 
@@ -1137,8 +1225,26 @@ final class AppStore {
             avatarImages[attachment.id] = image
             return image
         }
-        guard !isMock, !fetchingAttachments.contains(attachment.id) else { return nil }
-        fetchingAttachments.insert(attachment.id)
+        fetchAttachment(attachment)
+        return nil
+    }
+
+    /// Where an attachment's bytes are on this computer. A file sent from here is known at once; one
+    /// sent from another Device is fetched through the CLI, and the message reloads when it lands.
+    private var attachmentURLs: [Attachment.ID: URL] = [:]
+    private var attachmentRetries = AttachmentRetryState()
+    private var attachmentRetryTask: Task<Void, Never>?
+
+    func localURL(for attachment: Attachment, in chatID: Chat.ID, messageID: Message.ID) -> URL? {
+        if let url = attachmentURLs[attachment.id], FileManager.default.isReadableFile(atPath: url.path) { return url }
+        attachmentURLs[attachment.id] = nil
+        fetchAttachment(attachment)
+        return nil
+    }
+
+    private func fetchAttachment(_ attachment: Attachment) {
+        guard !isMock, isConnected, let token = attachmentRetries.begin(attachment.id) else { return }
+        let account = identityID
         Task { [weak self] in
             let params: [String: Any] = [
                 "attachment": ["id": attachment.id, "name": attachment.name, "mime": attachment.mime, "size": attachment.size]
@@ -1147,43 +1253,57 @@ final class AppStore {
             do {
                 let reply = try await client.request("files.path", params, as: Wire.FilePath.self)
                 let url = URL(fileURLWithPath: reply.path)
+                guard FileManager.default.isReadableFile(atPath: url.path) else {
+                    throw CLIClient.RequestError(message: "下载的文件暂不可用。")
+                }
+                let image = NSImage(contentsOf: url)
+                if attachment.mime.hasPrefix("image/"), image?.isValid != true {
+                    throw CLIClient.RequestError(message: "下载的图片暂时无法读取。")
+                }
+                guard account == identityID, attachmentRetries.succeeded(attachment.id, token: token) else { return }
                 attachmentURLs[attachment.id] = url
-                if let image = NSImage(contentsOf: url) { avatarImages[attachment.id] = image }
-                emit(.rosterChanged)
-                emit(.chatsChanged)
-                for chat in chats where chat.botIDs.contains(bot.id) { emit(.chatChanged(chat.id)) }
+                if let image { avatarImages[attachment.id] = image }
+                refreshAttachment(attachment.id)
             } catch {
-                NSLog("fetching \(bot.name)'s image failed: \(error.localizedDescription)")
+                guard account == identityID, attachmentRetries.failed(attachment.id, token: token) else { return }
+                NSLog("fetching \(attachment.name) failed: \(error.localizedDescription)")
+                scheduleAttachmentRetry()
             }
         }
-        return nil
     }
 
-    /// Where an attachment's bytes are on this computer. A file sent from here is known at once; one
-    /// sent from another Device is fetched through the CLI, and the message reloads when it lands.
-    private var attachmentURLs: [Attachment.ID: URL] = [:]
-    private var fetchingAttachments: Set<Attachment.ID> = []
-
-    func localURL(for attachment: Attachment, in chatID: Chat.ID, messageID: Message.ID) -> URL? {
-        if let url = attachmentURLs[attachment.id] { return url }
-        guard !isMock, !fetchingAttachments.contains(attachment.id) else { return nil }
-        fetchingAttachments.insert(attachment.id)
-        Task { [weak self] in
-            let params: [String: Any] = [
-                "attachment": ["id": attachment.id, "name": attachment.name, "mime": attachment.mime, "size": attachment.size]
-            ]
-            guard let self else { return }
-            do {
-                let reply = try await client.request("files.path", params, as: Wire.FilePath.self)
-                attachmentURLs[attachment.id] = URL(fileURLWithPath: reply.path)
-                emit(.messageChanged(chatID, messageID))
-            } catch {
-                // Left in the fetching set: the relay does not have it, and every scroll would
-                // ask again. A relaunch retries.
-                NSLog("fetching \(attachment.name) failed: \(error.localizedDescription)")
+    private func refreshAttachment(_ id: Attachment.ID) {
+        if bots.contains(where: { $0.avatar?.id == id }) {
+            emit(.rosterChanged)
+            emit(.chatsChanged)
+            for chat in chats where chat.botIDs.contains(where: { bot($0)?.avatar?.id == id }) {
+                emit(.chatChanged(chat.id))
             }
         }
-        return nil
+        for chat in chats {
+            for message in chat.messages where message.attachments.contains(where: { $0.id == id }) {
+                emit(.messageChanged(chat.id, message.id))
+            }
+        }
+    }
+
+    private func scheduleAttachmentRetry() {
+        attachmentRetryTask?.cancel()
+        guard let deadline = attachmentRetries.nextRetry else { attachmentRetryTask = nil; return }
+        attachmentRetryTask = Task { [weak self] in
+            do { try await Task.sleep(nanoseconds: UInt64(max(0, deadline.timeIntervalSinceNow) * 1_000_000_000)) }
+            catch { return }
+            guard let self else { return }
+            let due = attachmentRetries.takeDue()
+            for id in due { refreshAttachment(id) }
+            scheduleAttachmentRetry()
+        }
+    }
+
+    private func resetAttachmentRetries() {
+        attachmentRetryTask?.cancel()
+        attachmentRetryTask = nil
+        attachmentRetries.reset()
     }
 
     func isResponding(in chatID: Chat.ID) -> Bool {

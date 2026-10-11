@@ -537,8 +537,13 @@ final class RootSplitViewController: NSSplitViewController {
     }
 
     func focusSearch() {
-        if selection?.isSettings == true { settingsSidebar.focusSearch() }
-        else if selection == nil { libraryController.focusSearch() }
+        if selection?.isSettings == true {
+            if isTeamDrawerOpen { closeTeamDrawer() }
+            sidebarItem.isCollapsed = false
+            splitView.layoutSubtreeIfNeeded()
+            settingsSidebar.focusSearch()
+            onContentChange?()
+        } else if selection == nil { libraryController.focusSearch() }
         else { sidebar.focusSearch() }
     }
 

@@ -31,3 +31,8 @@
 "Create a teammate to get started" = "Create a teammate to get started";
 
 "Back to Library" = "Back to Library";
+
+"Message could not be sent" = "Message could not be sent";
+"Your draft is still here. Remove some attachments and try again." = "Your draft is still here. Remove some attachments and try again.";
+"Your draft was restored in %@. New text and attachments were kept." = "Your draft was restored in %@. New text and attachments were kept.";
+"Your draft was restored in the library. New text and attachments were kept." = "Your draft was restored in the library. New text and attachments were kept.";
