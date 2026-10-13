@@ -6,6 +6,7 @@ final class RootSplitViewController: NSSplitViewController {
     private let sidebarContainer = ContentContainerViewController()
     private lazy var sidebar = makeSidebar()
     private var teamDrawer: TeammateDrawerViewController?
+    private var teamDrawerVisit = UUID()
     private var sidebarBeforeDrawer = false
     private(set) var isTeamDrawerOpen = false
     private var settingsSidebarStorage: SettingsSidebarViewController?
@@ -46,7 +47,6 @@ final class RootSplitViewController: NSSplitViewController {
     private weak var focusBeforeSettings: NSView?
     private lazy var offlineController = makeOfflineController()
     private var loadingController = LoadingViewController()
-    private lazy var placeholderController = makePlaceholderController()
     private lazy var libraryController = makeLibraryController()
 
     var onSelectionChange: (() -> Void)?
@@ -65,11 +65,6 @@ final class RootSplitViewController: NSSplitViewController {
     var currentOrRecentChatID: Chat.ID? {
         if case let .chat(id) = selection, store.chat(id) != nil { return id }
         return lastChatID.flatMap { store.chat($0)?.id } ?? store.chats.first?.id
-    }
-
-    func openRecentChat() {
-        let chat = lastChatID.flatMap { store.chat($0) } ?? store.chats.first
-        select(chat.map { .chat($0.id) })
     }
 
     /// The panes visited since Settings opened, for the toolbar's back and forward.
@@ -206,7 +201,6 @@ final class RootSplitViewController: NSSplitViewController {
         settingsControllers = [:]
         offlineController = makeOfflineController()
         loadingController = LoadingViewController()
-        placeholderController = makePlaceholderController()
         libraryController = makeLibraryController()
         teamDrawer?.languageChanged()
         guard isViewLoaded else { return }
@@ -246,12 +240,6 @@ final class RootSplitViewController: NSSplitViewController {
     private func makeOfflineController() -> OfflineViewController {
         let controller = OfflineViewController()
         controller.onRetry = { [weak self] in self?.store.reconnect() }
-        return controller
-    }
-
-    private func makePlaceholderController() -> PlaceholderViewController {
-        let controller = PlaceholderViewController()
-        controller.onNewBot = { [weak self] in self?.presentNewBot() }
         return controller
     }
 
@@ -553,13 +541,15 @@ final class RootSplitViewController: NSSplitViewController {
         if teamDrawer == nil {
             let drawer = TeammateDrawerViewController()
             drawer.onBack = { [weak self] in self?.closeTeamDrawer() }
-            drawer.onCreate = { [weak self] botIDs, title in
-                guard let self, self.store.isConnected else { return }
-                self.closeTeamDrawer()
-                self.teamDrawer = nil
-                self.open(self.store.createChat(kind: .group, with: botIDs, title: title))
-            }
             teamDrawer = drawer
+        }
+        teamDrawerVisit = UUID()
+        let visit = teamDrawerVisit
+        teamDrawer?.onCreate = { [weak self] chatID in
+            guard let self, self.isTeamDrawerOpen, self.teamDrawerVisit == visit else { return }
+            self.closeTeamDrawer()
+            self.teamDrawer = nil
+            self.open(chatID)
         }
         sidebarBeforeDrawer = sidebarItem.isCollapsed
         isTeamDrawerOpen = true
@@ -569,12 +559,9 @@ final class RootSplitViewController: NSSplitViewController {
         onContentChange?()
     }
 
-    func toggleTeamDrawer() {
-        if isTeamDrawerOpen { closeTeamDrawer() } else { presentNewGroupChat() }
-    }
-
     private func closeTeamDrawer() {
         guard isTeamDrawerOpen else { return }
+        teamDrawerVisit = UUID()
         isTeamDrawerOpen = false
         syncSidebar()
         sidebarItem.isCollapsed = sidebarBeforeDrawer

@@ -3,7 +3,8 @@ import { resolve } from "node:path"
 const root = resolve(import.meta.dir, "..")
 for (const script of [
   "test-composer-drafts.ts", "test-attachment-retry.ts",
-  "test-watched-chat.ts", "test-newbot-submission.ts",
+  "test-watched-chat.ts", "test-newbot-submission.ts", "test-attachment-files.ts",
+  "test-sheet-drafts.ts", "test-group-submission.ts",
 ]) {
   const test = Bun.spawn(["bun", "run", `scripts/${script}`], {
     cwd: root, stdout: "inherit", stderr: "inherit",

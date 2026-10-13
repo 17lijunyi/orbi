@@ -273,11 +273,6 @@ enum PlushAvatar {
         return image
     }
 
-    @MainActor
-    static func shapeThumbnail(shape: String, color: String, side: Int = 220) -> NSImage? {
-        shapeThumbnail(kind: shape, color: color, side: side)
-    }
-
     enum RenderError: LocalizedError {
         case missingArtwork
         case encodingFailed

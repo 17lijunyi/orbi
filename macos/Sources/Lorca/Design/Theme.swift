@@ -15,11 +15,6 @@ enum Accent: String, Hashable, CaseIterable {
         case .red: .systemRed
         }
     }
-
-    /// Slightly lifted twin used as the top stop of avatar gradients.
-    var highlight: NSColor {
-        color.blended(withFraction: 0.28, of: .white) ?? color
-    }
 }
 
 enum Theme {
@@ -117,24 +112,6 @@ enum Theme {
 
     enum Metric {
         static let bubbleCornerRadius: CGFloat = 14
-        static let bubblePaddingX: CGFloat = 12
-        static let bubblePaddingY: CGFloat = 9
-        static let bubbleMaxWidth: CGFloat = 560
-        static let transcriptInsetX: CGFloat = 20
         static let avatarSize: CGFloat = 26
-        static let rowSpacing: CGFloat = 4
-        static let groupSpacing: CGFloat = 14
-    }
-}
-
-extension NSColor {
-    func hexish() -> String {
-        guard let srgb = usingColorSpace(.sRGB) else { return "" }
-        return String(
-            format: "%02X%02X%02X",
-            Int(srgb.redComponent * 255),
-            Int(srgb.greenComponent * 255),
-            Int(srgb.blueComponent * 255)
-        )
     }
 }

@@ -7,7 +7,6 @@ final class PluginViewController: SheetViewController {
     private let store = AppStore.shared
     private let pluginID: String
     private let runner: Device
-    private let bot: Bot?
 
     private let status = SectionView(title: L("Status"))
     private let signIn = SectionView(title: L("Sign-in"))
@@ -18,8 +17,12 @@ final class PluginViewController: SheetViewController {
     private let note = Build.label(
         "", font: Theme.Font.caption, color: .secondaryLabelColor, lines: 0)
 
-    private var detail: PluginDetail?
     private var fields: [(name: String, field: NSTextField)] = []
+    private var fieldValues: [String: String] = [:]
+    private var variableDefinitions: [PluginDetail.Variable] = []
+    private var isSaving = false
+    private var lifecycle = 0
+    private var isDismissed = false
     /// Only the newest load renders, so an older answer arriving late (a sealed request to
     /// another Runner) never covers a newer one, such as the detail with a sign-in code.
     private var loads = 0
@@ -27,7 +30,6 @@ final class PluginViewController: SheetViewController {
     init(pluginID: String, runner: Device, bot: Bot?) {
         self.pluginID = pluginID
         self.runner = runner
-        self.bot = bot
         let plugin = runner.plugins.first { $0.id == pluginID }
         super.init(
             title: L(plugin?.name ?? pluginID),
@@ -92,15 +94,23 @@ final class PluginViewController: SheetViewController {
         }
     }
 
+    override func viewDidDisappear() {
+        super.viewDidDisappear()
+        isDismissed = true
+        lifecycle += 1
+        loads += 1
+        setSaving(false)
+    }
+
     private func load() {
+        guard !isDismissed else { return }
         loads += 1
         let load = loads
         Task { [weak self] in
-            guard let self else { return }
+            guard let self, load == self.loads else { return }
             do {
                 let detail = try await self.store.pluginDetail(self.pluginID, on: self.runner.id)
                 guard load == self.loads else { return }
-                self.detail = detail
                 self.render(detail)
             } catch {
                 guard load == self.loads else { return }
@@ -167,25 +177,41 @@ final class PluginViewController: SheetViewController {
                 return row
             })
 
-        fields = []
+        // Presence and sign-in changes refresh this sheet too. Keep edits (including secrets)
+        // and the active field editor while updating values the user has not changed.
+        let rebuildFields = variableDefinitions.count != detail.variables.count
+            || zip(variableDefinitions, detail.variables).contains { old, new in
+                old.name != new.name || old.secret != new.secret
+                    || old.required != new.required || old.description != new.description
+            }
+        let previousFields = Dictionary(uniqueKeysWithValues: fields.map { ($0.name, $0.field) })
+        fields = detail.variables.map { variable in
+            let previous = previousFields[variable.name]
+            let sameKind = previous.map { ($0 is NSSecureTextField) == variable.secret } ?? false
+            let field = sameKind ? previous! : (variable.secret ? NSSecureTextField() : NSTextField())
+            let value = variable.secret ? "" : (variable.value ?? "")
+            if !sameKind || field.stringValue == fieldValues[variable.name] {
+                field.stringValue = value
+            }
+            fieldValues[variable.name] = value
+            field.placeholderString = variable.secret
+                ? (variable.isSet ? L("Set · type to replace") : L("Not set"))
+                : (variable.isSet ? "" : L("Not set"))
+            field.font = .monospacedSystemFont(ofSize: 11, weight: .regular)
+            field.controlSize = .small
+            field.toolTip = L(variable.description)
+            field.isEnabled = !isSaving
+            return (variable.name, field)
+        }
+        fieldValues = fieldValues.filter { previous in detail.variables.contains { $0.name == previous.key } }
+        variableDefinitions = detail.variables
         variables.isHidden = detail.variables.isEmpty
         saveButton.isHidden = detail.variables.isEmpty
-        variables.setRows(
-            detail.variables.map { variable in
-                let field: NSTextField = variable.secret ? NSSecureTextField() : NSTextField()
-                field.placeholderString =
-                    variable.secret
-                    ? (variable.isSet ? L("Set · type to replace") : L("Not set"))
-                    : (variable.isSet ? "" : L("Not set"))
-                field.stringValue = variable.secret ? "" : (variable.value ?? "")
-                field.font = .monospacedSystemFont(ofSize: 11, weight: .regular)
-                field.controlSize = .small
-                field.toolTip = L(variable.description)
-                fields.append((variable.name, field))
-                let row = FieldRow(
-                    key: variable.name + (variable.required ? " *" : ""), field: field)
-                return row
+        if rebuildFields {
+            variables.setRows(zip(detail.variables, fields).map { variable, entry in
+                FieldRow(key: variable.name + (variable.required ? " *" : ""), field: entry.field)
             })
+        }
 
         skills.isHidden = detail.skills.isEmpty
         skills.setRows(detail.skills.map { KeyValueRow(key: L($0.name), value: L($0.description)) })
@@ -193,40 +219,73 @@ final class PluginViewController: SheetViewController {
     }
 
     @objc private func save() {
+        guard !isSaving else { return }
         var values: [String: String] = [:]
         for (name, field) in fields
         where !field.stringValue.isEmpty || !(field is NSSecureTextField) {
             values[name] = field.stringValue
         }
-        saveButton.isEnabled = false
+        setSaving(true)
+        let generation = lifecycle
         Task { [weak self] in
-            guard let self else { return }
-            defer { self.saveButton.isEnabled = true }
+            guard let self, generation == self.lifecycle else { return }
+            defer { if generation == self.lifecycle { self.setSaving(false) } }
             do {
                 _ = try await self.store.setPluginVariables(
                     self.pluginID, on: self.runner.id, variables: values)
+                guard generation == self.lifecycle else { return }
+                // Only acknowledged values become the baseline. Secrets are never shown
+                // again after saving; failures keep every draft available for retry.
+                for (name, field) in self.fields {
+                    if field is NSSecureTextField { field.stringValue = "" }
+                    self.fieldValues[name] = field.stringValue
+                }
                 self.load()
             } catch {
+                guard generation == self.lifecycle else { return }
                 self.alert(L("Couldn't save"), error.localizedDescription)
             }
         }
     }
 
+    private func setSaving(_ saving: Bool) {
+        isSaving = saving
+        saveButton.isEnabled = !saving
+        removeButton.isEnabled = !saving
+        confirmButton.isEnabled = !saving
+        for (_, field) in fields { field.isEnabled = !saving }
+    }
+
+    override func dismissSheet() {
+        guard !isSaving else { return }
+        super.dismissSheet()
+    }
+
+    override func confirmTapped() {
+        guard !isSaving else { return }
+        super.confirmTapped()
+    }
+
     private func connect() {
+        guard !isSaving else { return }
+        let generation = lifecycle
         Task { [weak self] in
-            guard let self else { return }
+            guard let self, generation == self.lifecycle else { return }
             do {
                 // The Runner notes the sign-in on the plugin, so the State row reads it.
                 try await self.store.connectPlugin(self.pluginID, on: self.runner.id)
+                guard generation == self.lifecycle else { return }
                 self.load()
             } catch {
+                guard generation == self.lifecycle else { return }
                 self.alert(L("Couldn't start the sign-in"), error.localizedDescription)
             }
         }
     }
 
     @objc private func confirmRemove() {
-        guard let window = view.window else { return }
+        guard !isSaving, let window = view.window else { return }
+        let generation = lifecycle
         let name = runner.plugins.first { $0.id == pluginID }?.name ?? pluginID
         let alert = NSAlert()
         alert.messageText = L("Remove %@ from %@?", name, runner.name)
@@ -236,13 +295,15 @@ final class PluginViewController: SheetViewController {
         alert.addButton(withTitle: L("Cancel"))
         alert.alertStyle = .warning
         alert.beginSheetModal(for: window) { [weak self] response in
-            guard let self, response == .alertFirstButtonReturn else { return }
+            guard let self, generation == self.lifecycle, response == .alertFirstButtonReturn else { return }
             Task { [weak self] in
-                guard let self else { return }
+                guard let self, generation == self.lifecycle else { return }
                 do {
                     try await self.store.uninstallPlugin(self.pluginID, on: self.runner.id)
+                    guard generation == self.lifecycle else { return }
                     self.dismiss(nil)
                 } catch {
+                    guard generation == self.lifecycle else { return }
                     self.alert(L("Couldn't remove it"), error.localizedDescription)
                 }
             }
@@ -253,7 +314,7 @@ final class PluginViewController: SheetViewController {
         let alert = NSAlert()
         alert.messageText = title
         alert.informativeText = text
-        if let window = view.window { alert.beginSheetModal(for: window) } else { alert.runModal() }
+        if let window = view.window { alert.beginSheetModal(for: window) }
     }
 }
 
