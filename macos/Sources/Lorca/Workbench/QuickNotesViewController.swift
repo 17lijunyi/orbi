@@ -26,6 +26,7 @@ final class QuickNotesViewController: NSViewController, NSTextViewDelegate {
         scroll.hasVerticalScroller = true
         scroll.autohidesScrollers = true
         editor.isRichText = false
+        editor.allowsUndo = true
         editor.drawsBackground = false
         editor.font = .systemFont(ofSize: 13)
         editor.textColor = .labelColor
@@ -38,6 +39,9 @@ final class QuickNotesViewController: NSViewController, NSTextViewDelegate {
         editor.textContainer?.containerSize = NSSize(width: 0, height: CGFloat.greatestFiniteMagnitude)
         editor.string = store.note
         editor.delegate = self
+        for name in [Notification.Name.NSUndoManagerDidUndoChange, .NSUndoManagerDidRedoChange] {
+            NotificationCenter.default.addObserver(self, selector: #selector(undoOrRedoFinished(_:)), name: name, object: nil)
+        }
         editor.setAccessibilityLabel(L("Quick Notes"))
         scroll.documentView = editor
         field.addSubview(scroll)
@@ -87,6 +91,15 @@ final class QuickNotesViewController: NSViewController, NSTextViewDelegate {
         flush()
         refreshStatus()
     }
+
+    @objc private func undoOrRedoFinished(_ notification: Notification) {
+        // Undo can change the text storage without the editor's ordinary change callback.
+        guard let manager = notification.object as? UndoManager, manager === editor.undoManager else { return }
+        flush()
+        refreshStatus()
+    }
+
+    deinit { NotificationCenter.default.removeObserver(self) }
 
     private func refreshStatus() {
         let empty = editor.string.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty

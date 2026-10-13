@@ -7,10 +7,13 @@ final class MemoryViewController: SheetViewController {
     private let store = AppStore.shared
     private let bot: Bot
     private var memory: BotMemory
+    private var isPending = false
+    private var operation = 0
 
     private let scrollView = NSScrollView()
     private let textView = NSTextView()
     private let gauge = Build.label("", font: Theme.Font.caption, color: .secondaryLabelColor, lines: 0)
+    private let errorLabel = Build.label("", font: Theme.Font.caption, color: .systemRed, lines: 0)
 
     var onSaved: (() -> Void)?
 
@@ -54,10 +57,13 @@ final class MemoryViewController: SheetViewController {
 
         contentStack.addArrangedSubview(scrollView)
         contentStack.addArrangedSubview(gauge)
+        errorLabel.isHidden = true
+        contentStack.addArrangedSubview(errorLabel)
         NSLayoutConstraint.activate([
             scrollView.widthAnchor.constraint(equalTo: contentStack.widthAnchor),
             scrollView.heightAnchor.constraint(equalToConstant: 340),
             gauge.widthAnchor.constraint(equalTo: contentStack.widthAnchor),
+            errorLabel.widthAnchor.constraint(equalTo: contentStack.widthAnchor),
         ])
 
         setButtons(confirm: L("Save"))
@@ -100,24 +106,53 @@ final class MemoryViewController: SheetViewController {
         save(expectedHash: memory.hash)
     }
 
+    override func dismissSheet() {
+        guard !isPending else { return }
+        super.dismissSheet()
+    }
+
+    override func viewDidDisappear() {
+        super.viewDidDisappear()
+        // A window close or identity change may remove the sheet while a request is in flight.
+        operation += 1
+        setPending(false)
+    }
+
+    private func setPending(_ pending: Bool) {
+        isPending = pending
+        confirmButton.isEnabled = !pending
+        cancelButton?.isEnabled = !pending
+        textView.isEditable = !pending
+    }
+
+    private func showError(_ error: Error) {
+        errorLabel.stringValue = error.localizedDescription
+        errorLabel.isHidden = false
+        fitSheetToContent()
+    }
+
     private func save(expectedHash: String?) {
+        guard !isPending else { return }
         let text = textView.string
-        confirmButton.isEnabled = false
+        errorLabel.isHidden = true
+        operation += 1
+        let currentOperation = operation
+        setPending(true)
         Task { [weak self] in
-            guard let self else { return }
+            guard let self, currentOperation == self.operation else { return }
             do {
                 _ = try await self.store.writeBotMemory(self.bot.id, text: text, expectedHash: expectedHash)
+                guard currentOperation == self.operation else { return }
+                self.setPending(false)
                 self.onSaved?()
                 self.dismiss(nil)
             } catch {
-                self.confirmButton.isEnabled = true
+                guard currentOperation == self.operation else { return }
+                self.setPending(false)
                 if error.localizedDescription.contains("changed since") {
                     self.resolveConflict()
                 } else {
-                    let alert = NSAlert()
-                    alert.messageText = L("Couldn't save the memory")
-                    alert.informativeText = error.localizedDescription
-                    alert.beginSheetModal(for: self.view.window!, completionHandler: nil)
+                    self.showError(error)
                 }
             }
         }
@@ -132,20 +167,39 @@ final class MemoryViewController: SheetViewController {
         alert.addButton(withTitle: L("Overwrite with mine"))
         alert.addButton(withTitle: L("Cancel"))
         guard let window = view.window else { return }
+        let currentOperation = operation
         alert.beginSheetModal(for: window) { [weak self] response in
-            guard let self else { return }
+            guard let self, currentOperation == self.operation else { return }
             switch response {
             case .alertFirstButtonReturn:
-                Task { [weak self] in
-                    guard let self, let fresh = try? await self.store.botMemory(self.bot.id) else { return }
-                    self.memory = fresh
-                    self.textView.string = fresh.text
-                    self.updateGauge()
-                }
+                self.reload()
             case .alertSecondButtonReturn:
                 self.save(expectedHash: nil)
             default:
                 break
+            }
+        }
+    }
+
+    private func reload() {
+        guard !isPending else { return }
+        operation += 1
+        let currentOperation = operation
+        errorLabel.isHidden = true
+        setPending(true)
+        Task { [weak self] in
+            guard let self, currentOperation == self.operation else { return }
+            do {
+                let fresh = try await self.store.botMemory(self.bot.id)
+                guard currentOperation == self.operation else { return }
+                self.memory = fresh
+                self.textView.string = fresh.text
+                self.updateGauge()
+                self.setPending(false)
+            } catch {
+                guard currentOperation == self.operation else { return }
+                self.setPending(false)
+                self.showError(error)
             }
         }
     }

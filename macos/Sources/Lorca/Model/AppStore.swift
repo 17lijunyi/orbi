@@ -621,7 +621,8 @@ final class AppStore {
     }
 
     @discardableResult
-    func createChat(kind: Chat.Kind, with botIDs: [Bot.ID], title: String?) -> Chat.ID {
+    func createChat(kind: Chat.Kind, with botIDs: [Bot.ID], title: String?,
+                    completion: ((Result<Void, Error>) -> Void)? = nil) -> Chat.ID {
         let botIDs: [Bot.ID] = kind == .dm ? Array(botIDs.prefix(1)) : Array(botIDs.prefix(Chat.maxGroupBots))
         let chat = Chat(
             id: "chat-\(UUID().uuidString.lowercased().prefix(8))",
@@ -638,7 +639,13 @@ final class AppStore {
         emit(.chatsChanged)
         perform(
             "chats.create",
-            ["id": chat.id, "kind": kind.rawValue, "bot_ids": botIDs, "title": title ?? ""])
+            ["id": chat.id, "kind": kind.rawValue, "bot_ids": botIDs, "title": title ?? ""],
+            completion: completion,
+            rollback: { [weak self] in
+                self?.chats.removeAll { $0.id == chat.id }
+                self?.emit(.chatsChanged)
+            },
+            isConfirmed: { snapshot in snapshot.chats.contains { $0.id == chat.id } })
         return chat.id
     }
 

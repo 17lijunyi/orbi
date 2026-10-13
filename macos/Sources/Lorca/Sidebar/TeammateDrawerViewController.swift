@@ -12,11 +12,15 @@ final class TeammateDrawerViewController: NSViewController, NSSearchFieldDelegat
     private let document = FlippedView()
     private let createButton = NSButton()
     private let backButton = NSButton()
+    private let status = Build.label("", font: .systemFont(ofSize: 11), color: .secondaryLabelColor, lines: 0)
     private var selected: [Bot.ID] = []
     private var rows: [Bot.ID: SelectableBotRow] = [:]
     private var seededSelection = false
+    private var draftIdentity = DraftIdentityScope()
+    private var isSubmitting = false
+    private var submissionGeneration = 0
 
-    var onCreate: (([Bot.ID], String?) -> Void)?
+    var onCreate: ((Chat.ID) -> Void)?
     var onBack: (() -> Void)?
 
     override func loadView() {
@@ -55,7 +59,8 @@ final class TeammateDrawerViewController: NSViewController, NSSearchFieldDelegat
             button.translatesAutoresizingMaskIntoConstraints = false
             button.heightAnchor.constraint(equalToConstant: 36).isActive = true
         }
-        let footer = Build.stack([createButton, backButton], spacing: 8)
+        status.isHidden = true
+        let footer = Build.stack([status, createButton, backButton], spacing: 8)
         [count, nameField, search, scroll, footer].forEach { container.addSubview($0) }
         NSLayoutConstraint.activate([
             count.topAnchor.constraint(equalTo: container.topAnchor, constant: 8),
@@ -79,6 +84,7 @@ final class TeammateDrawerViewController: NSViewController, NSSearchFieldDelegat
             footer.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -10),
             createButton.widthAnchor.constraint(equalTo: footer.widthAnchor),
             backButton.widthAnchor.constraint(equalTo: footer.widthAnchor),
+            status.widthAnchor.constraint(equalTo: footer.widthAnchor),
         ])
         view = container
     }
@@ -88,7 +94,7 @@ final class TeammateDrawerViewController: NSViewController, NSSearchFieldDelegat
         rebuild()
         store.observe(self) { [weak self] event in
             switch event {
-            case .snapshotReplaced, .rosterChanged, .connectionChanged: self?.rebuild()
+            case .identityChanged, .snapshotReplaced, .rosterChanged, .connectionChanged: self?.rebuild()
             default: break
             }
         }
@@ -114,6 +120,15 @@ final class TeammateDrawerViewController: NSViewController, NSSearchFieldDelegat
 
     private func rebuild() {
         guard isViewLoaded else { return }
+        if draftIdentity.useIdentity(store.identityID, signedIn: store.hasIdentity == true) {
+            submissionGeneration += 1
+            isSubmitting = false
+            selected = []
+            seededSelection = false
+            nameField.stringValue = ""
+            search.stringValue = ""
+            status.isHidden = true
+        }
         if !seededSelection, !store.bots.isEmpty {
             selected = Array(store.bots.prefix(2).map(\.id))
             seededSelection = true
@@ -145,6 +160,7 @@ final class TeammateDrawerViewController: NSViewController, NSSearchFieldDelegat
     }
 
     private func toggle(_ id: Bot.ID) {
+        guard !isSubmitting, store.isConnected, store.hasIdentity == true else { return }
         if let index = selected.firstIndex(of: id) { selected.remove(at: index) }
         else if selected.count < Chat.maxGroupBots { selected.append(id) }
         else { NSSound.beep() }
@@ -155,17 +171,48 @@ final class TeammateDrawerViewController: NSViewController, NSSearchFieldDelegat
         count.stringValue = L("%d of %d teammates selected", selected.count, Chat.maxGroupBots)
         for (id, row) in rows {
             row.isSelected = selected.contains(id)
-            row.isEnabled = store.isConnected && (row.isSelected || selected.count < Chat.maxGroupBots)
+            row.isEnabled = !isSubmitting && store.isConnected && store.hasIdentity == true
+                && (row.isSelected || selected.count < Chat.maxGroupBots)
         }
-        createButton.isEnabled = store.isConnected && !selected.isEmpty
+        createButton.isEnabled = !isSubmitting && store.isConnected && store.hasIdentity == true && !selected.isEmpty
+        createButton.title = isSubmitting ? L("Creating…") : L("Create Group Chat")
+        nameField.isEnabled = !isSubmitting
+        search.isEnabled = !isSubmitting
+        backButton.isEnabled = !isSubmitting
     }
 
     @objc private func createGroup() {
         selected.removeAll { store.bot($0) == nil }
-        guard store.isConnected, !selected.isEmpty else { updateState(); return }
+        guard !isSubmitting, store.isConnected, store.hasIdentity == true, !selected.isEmpty else { updateState(); return }
         let title = nameField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-        onCreate?(selected, title.isEmpty ? nil : title)
+        isSubmitting = true
+        status.isHidden = true
+        updateState()
+        submissionGeneration += 1
+        let generation = submissionGeneration
+        // A later drawer visit must not inherit navigation from this submission.
+        let didCreate = onCreate
+        var createdChatID: Chat.ID?
+        let chatID = store.createChat(kind: .group, with: selected, title: title.isEmpty ? nil : title) { [weak self] result in
+            guard let self, generation == self.submissionGeneration else { return }
+            self.isSubmitting = false
+            switch result {
+            case .success:
+                self.nameField.stringValue = ""
+                self.status.stringValue = L("Group chat created")
+                self.status.textColor = .secondaryLabelColor
+                self.status.isHidden = false
+                self.updateState()
+                if let createdChatID { didCreate?(createdChatID) }
+            case .failure(let error):
+                self.status.stringValue = L("Could not create group chat. Your draft was kept.\n%@", error.localizedDescription)
+                self.status.textColor = .systemRed
+                self.status.isHidden = false
+                self.updateState()
+            }
+        }
+        createdChatID = chatID
     }
 
-    @objc private func back() { onBack?() }
+    @objc private func back() { guard !isSubmitting else { return }; onBack?() }
 }

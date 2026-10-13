@@ -227,10 +227,8 @@
 "Couldn't install %@: %@" = "无法安装 %1$@：%2$@";
 "Couldn't remove it" = "无法移除";
 "Couldn't save" = "无法保存";
-"Couldn't save the memory" = "无法保存记忆";
 "Couldn't start the sign-in" = "无法开始登录";
 "Couldn’t unpair %@" = "无法取消配对 %@";
-"Create" = "新建";
 "Create a New Identity" = "创建新身份";
 "Create a team of bots for your everyday work. Give each one a role, bring them into a group chat, and pick up the conversation from your phone. Orbi runs the bots on your computers and encrypts your chats before they sync.\n\nDraft saved to `launch/announcement.md`." = "组建一支智能体团队，协助你处理日常工作。给每位成员分配职责，邀请它们加入群聊，也可以在手机上继续对话。Orbi 在你的电脑上运行智能体，并在同步前加密聊天内容。\n\n草稿已保存到 `launch/announcement.md`。";
 "Create a teammate to get started" = "创建智能体，开始协作";
@@ -453,13 +451,11 @@
 "New Bot" = "新建智能体";
 "New Bot…" = "新建智能体…";
 "New Chat" = "新聊天";
-"New Group Chat" = "新建群聊";
 "New Group Chat…" = "新建群聊…";
 "Next run" = "下次运行";
 "No answer in time" = "未及时答复";
 "No bots assigned" = "未分配智能体";
 "No bots in this group yet." = "此群聊中还没有智能体。";
-"No chat selected" = "未选择聊天";
 "No messages yet" = "暂无消息";
 "No other notes yet" = "暂无其他笔记";
 "No plugins installed" = "未安装插件";
@@ -541,7 +537,6 @@
 "Paused" = "已暂停";
 "Paused while you were away" = "在你离开期间已暂停";
 "Photo" = "照片";
-"Pick a conversation in the sidebar, or start a new one." = "在边栏中选择一个对话，或者开始新的对话。";
 "Pick up to six bots to talk with together." = "最多选取六个智能体一起聊天。";
 "Pin" = "置顶";
 "Pin Chat" = "置顶聊天";
@@ -866,3 +861,6 @@
 "Your draft is still here. Remove some attachments and try again." = "草稿已保留，请移除部分附件后重试。";
 "Your draft was restored in %@. New text and attachments were kept." = "草稿已恢复到“%@”，新输入的文字和附件也已保留。";
 "Your draft was restored in the library. New text and attachments were kept." = "草稿已恢复到主页输入框，新输入的文字和附件也已保留。";
+"Creating…" = "正在创建…";
+"Group chat created" = "群聊已创建";
+"Could not create group chat. Your draft was kept.\n%@" = "群聊未能创建，填写的内容已保留，请重试。\n%@";
