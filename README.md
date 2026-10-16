@@ -3,7 +3,7 @@
 <p align="center">在 Mac 上，和你的 AI 工作伙伴一起完成任务。</p>
 <p align="center">原生 macOS · 智能体协作 · 毛绒星球 DIY · 七款窗口背景</p>
 
-Orbi 是[李俊祎](https://github.com/17lijunyi)个人打造并持续维护的 macOS AI 工作台，围绕智能体协作，提供中文交互、毛绒星球 DIY、个性化窗口背景与悬浮聊天体验。
+Orbi 是由[李俊祎](https://github.com/17lijunyi)维护的个人 macOS AI 工作台，围绕智能体协作，提供中文交互、毛绒星球 DIY、个性化窗口背景与悬浮聊天体验。
 
 你可以为不同工作建立智能体，在资料库中找到它们，发起单聊或协作群聊，并从同一个桌面应用管理模型服务、设备与任务。
 
@@ -122,4 +122,11 @@ swift test --package-path macos  # 需要完整 Xcode / XCTest
 
 ---
 
-项目维护：[李俊祎 / 17lijunyi](https://github.com/17lijunyi) · [GPL-3.0-only](LICENSE) · [开源声明](NOTICE.md)
+维护者：[李俊祎 / @17lijunyi](https://github.com/17lijunyi)
+
+<details>
+<summary>许可与声明</summary>
+
+[GPL-3.0-only](LICENSE) · [开源声明](NOTICE.md)
+
+</details>
