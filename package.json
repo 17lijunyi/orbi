@@ -1,0 +1,28 @@
+{
+  "name": "lorca",
+  "private": true,
+  "version": "1.0.7",
+  "workspaces": [
+    "web"
+  ],
+  "scripts": {
+    "dev": "bun run scripts/dev.ts",
+    "test:mac-startup": "bun run scripts/test-mac-startup.ts",
+    "build": "bun run scripts/build.ts",
+    "release-mac": "bun run scripts/release-mac.ts",
+    "release-ios": "bun run scripts/release-ios.ts",
+    "cli": "cargo run -q -p lorca -- serve",
+    "reset": "bun run scripts/reset.ts",
+    "relay": "mkdir -p temp && cargo run -q -p lorca-relay -- --bind 0.0.0.0:8787 --db temp/lorca-relay.db --apns-topic app.lorca.dev",
+    "l10n": "bun run scripts/l10n.ts",
+    "web": "bun run --cwd web dev",
+    "web:build": "bun run --cwd web build",
+    "web:deploy": "bun run --cwd web deploy",
+    "mobile:dev": "bun run scripts/mobile.ts",
+    "mobile:phone": "bun run scripts/mobile.ts --phone",
+    "android": "bun run --cwd mobile core android && bun run --cwd mobile android"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  }
+}

@@ -1,0 +1,85 @@
+// Pushes for replies, failed responses, and pending confirmations. The phone gives the relay
+// its APNs or FCM device token; a Runner seals the alert, and the phone opens it before it
+// shows (the notification service extension on iOS, PushService on Android). Here: the
+// permission, the token, what shows while the app is open, and the tap that opens the chat.
+
+import * as Application from "expo-application";
+import * as Device from "expo-device";
+import * as Notifications from "expo-notifications";
+import { router } from "expo-router";
+import { Platform } from "react-native";
+import * as core from "../../modules/lorca-core";
+import { useStore } from "./store";
+
+/// The chat a notification is about. iOS carries it as the data the extension set; Android's
+/// notification opens the chat by link and never comes through here.
+function chatOf(notification: Notifications.Notification): string | undefined {
+  const id = notification.request.content.data?.chat_id;
+  return typeof id === "string" ? id : undefined;
+}
+
+let installed = false;
+
+/// Once, at launch: an alert for the chat on screen makes no banner, and a tapped notification
+/// opens its chat (also the one that launched the app).
+export function installPushHandlers() {
+  if (installed) return;
+  installed = true;
+  Notifications.setNotificationHandler({
+    handleNotification: async (notification) => {
+      const { appActive, openChatId } = useStore.getState();
+      const show = !appActive || chatOf(notification) !== openChatId;
+      return { shouldShowBanner: show, shouldShowList: show, shouldPlaySound: show, shouldSetBadge: false };
+    },
+  });
+  const open = (response: Notifications.NotificationResponse | null) => {
+    const chatId = response && chatOf(response.notification);
+    if (chatId && useStore.getState().paired) router.navigate({ pathname: "/chat/[id]", params: { id: chatId } });
+  };
+  Notifications.addNotificationResponseReceivedListener(open);
+  open(Notifications.getLastNotificationResponse());
+  if (Platform.OS === "android") watchChats();
+}
+
+/// Android posts its own notifications (PushService), so the handler above never sees them.
+/// The native side is told which chat is on screen instead, and it knows when the app is in
+/// front: it posts nothing for that chat then and takes down what it posted for it.
+function watchChats() {
+  let told: string | null | undefined;
+  const update = () => {
+    const chatId = useStore.getState().openChatId;
+    if (chatId === told) return;
+    told = chatId;
+    core.setOpenChat(chatId);
+  };
+  useStore.subscribe(update);
+  update();
+}
+
+/// Asks for permission the first time and registers this phone's token with the relay. Safe
+/// to call on every launch and foreground; a phone without push (a simulator without APNs,
+/// an Android build without Firebase) just has none.
+export async function registerForPushes() {
+  try {
+    let { status } = await Notifications.getPermissionsAsync();
+    if (status === "undetermined") ({ status } = await Notifications.requestPermissionsAsync());
+    if (status !== "granted") return;
+    const token = await Notifications.getDevicePushTokenAsync();
+    if (typeof token.data !== "string") return;
+    // A development build's embedded profile says "development". A store or TestFlight build ships without
+    // one and reads null, as the simulator does, but only the simulator takes sandbox pushes.
+    const aps = Platform.OS === "ios" ? await Application.getIosPushNotificationServiceEnvironmentAsync() : null;
+    const environment = Platform.OS === "ios" ? (aps === "development" || !Device.isDevice ? "sandbox" : "production") : undefined;
+    await core.request("push.register", { platform: Platform.OS === "ios" ? "apns" : "fcm", token: token.data, environment });
+  } catch (error) {
+    console.warn("registering for pushes", error instanceof Error ? error.message : error);
+  }
+}
+
+/// The chat is on screen: what was posted for it has been seen.
+export async function clearPushes(chatId: string) {
+  try {
+    const presented = await Notifications.getPresentedNotificationsAsync();
+    await Promise.all(presented.filter((n) => chatOf(n) === chatId).map((n) => Notifications.dismissNotificationAsync(n.request.identifier)));
+  } catch {}
+}

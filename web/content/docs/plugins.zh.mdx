@@ -1,0 +1,57 @@
+---
+title: 插件
+description: 让智能体连接 GitHub、Jira、Notion、Stripe、浏览器等几十种服务。
+icon: Plug
+---
+
+插件为智能体提供某个服务或应用的工具。在底层，一个插件就是一个或多个 [MCP](https://modelcontextprotocol.io) 服务器。
+
+## 市场
+
+点按侧边栏右下角的市场图标（四个圆点），或选择 **文件 › 市场…**（⌘⇧M）。最前面是 **精选插件** 和 **精选智能体**，然后按类别列出其余内容。精选分组下的 **查看全部** 会列出所有插件或所有智能体。搜索会同时查找插件和智能体。
+
+Lorca 自带这些插件：
+
+| 类别 | 插件 |
+| --- | --- |
+| 效率 | Linear、Notion、Atlassian（Jira 和 Confluence）、Zapier、Todoist、ClickUp、Airtable |
+| 通信 | Granola、Fireflies、Resend |
+| 设计 | Canva、Miro、Webflow |
+| 代码 | GitHub、Sentry、Cloudflare、GitLab、Netlify、Railway、Expo |
+| 数据 | Supabase、Neon、PostHog、Mixpanel、Amplitude |
+| 销售 | Attio、Close、Apollo.io |
+| 财务 | Stripe、PayPal、Mercury |
+| 研究 | Context7（库文档）、Browser（由智能体操作的无头浏览器）、Exa（网页搜索）、DeepWiki、Hugging Face |
+| 支持 | Intercom |
+
+Browser、Context7、DeepWiki、Exa 和 Hugging Face 不需要账号。这里没有插件的应用，比如 Gmail、Google 日历和 Slack，可以通过 Zapier 使用。市场里的智能体是现成的队友，参见[智能体](/zh/docs/bots)。
+
+插件**按 Runner 安装**。那台电脑上的每个智能体都能使用那里安装的每个插件。密钥和登录状态留在那个 Runner 上；你的其他设备只看得到插件的名字和状态。
+
+## 按需加载工具
+
+每个回合开始时，智能体只会看到 Runner 上已安装插件的一份精简目录。只有任务确实需要某项能力时，Lorca 才连接对应的 MCP 服务器，并把匹配的工具结构交给模型。选中的工具会在本回合余下时间保持可用，无关插件的完整工具目录不会占用模型上下文。
+
+## 安装插件
+
+- **在聊天里：**对智能体说“安装 GitHub 插件”。它会找到插件，并在安装任何东西之前发一张卡片征求你的许可。
+- **在应用里：**打开市场，点按插件旁边的 **添加**。插件会安装在市场顶部显示的 Runner 上；如果你有多台 Runner，可以在那里换一台。智能体检查器里的 **从插件中添加…** 会在这个智能体的 Runner 上打开市场，**设置 › 插件** 则在工具栏里选中的 Runner 上打开。
+
+你可以从手机给任何 Runner 安装插件。请求会加密送到那台电脑。
+
+## 登录
+
+需要账号的插件会在聊天里发一张登录卡片：**登录** 或 **以后再说**。
+
+- GitHub 会显示一个短代码和一个链接（在插件的面板里登录时，面板上也会显示）。在任何设备上到 github.com 输入代码即可。
+- 其他服务会在 **Runner 上**的浏览器里打开登录页面。如果你在另一台设备上，卡片会告诉你到那边去完成。
+
+有些插件也接受直接粘贴的令牌，没有浏览器的 Runner 也能用：GitHub 的个人访问令牌，或者 Airtable、Cloudflare、Fireflies、Neon、PostHog、Resend、Stripe、Supabase、Zapier 的 API 密钥或令牌。Context7 和 Exa 可以填一个 API 密钥来提高免费额度，Hugging Face 的令牌则让插件用你自己的账号。在插件的面板里填写。密钥字段只能写入：保存之后不会再显示。
+
+## 插件可以做什么
+
+读取类操作立即执行。任何会改动东西的操作，比如创建 issue、发表评论、删除页面，都要经过 [自动审查](/zh/docs/auto-review)，该问的时候会先问你。
+
+## 管理插件
+
+插件的面板会显示它的状态、登录、设置、你已经始终允许的操作（带 **还原**），以及 **移除**。市场里的插件会自动更新，并保留你的设置和登录状态。

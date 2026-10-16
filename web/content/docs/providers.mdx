@@ -1,0 +1,54 @@
+---
+title: AI providers
+description: Connect an API-key provider or subscription once, and every Runner on your account can use it.
+icon: Sparkles
+---
+
+Bots think with your own AI accounts. Connect a provider once, on any paired device, and it reaches every other device encrypted with your account key.
+
+| Provider | How you connect | Default model |
+| --- | --- | --- |
+| **DeepSeek** | API key | `deepseek-flash` |
+| **Anthropic** | API key | `claude-opus-5` |
+| **OpenCode Zen** | API key, pay as you go | `deepseek-v4.1-flash` |
+| **OpenCode Go** | API key and Go subscription | `glm-5.3-flash` |
+| **ChatGPT** | Sign in with your ChatGPT subscription | `gpt-6-sol` |
+| **Grok** | Sign in with SuperGrok or X Premium+ | `grok-4.7` |
+
+DeepSeek, Anthropic, ChatGPT, and Grok search the web on the provider's side. Grok also searches X.
+
+## Connect
+
+In the desktop or phone app, open **Settings › Providers**, select a provider, and choose **Connect**.
+
+- **API key:** paste the key. Lorca checks it against the provider before saving.
+- **Sign-in:** your browser opens the provider's own sign-in page. Lorca never sees your password.
+
+From a terminal:
+
+```bash
+lorca provider set deepseek
+lorca provider set anthropic
+lorca provider set opencode
+lorca provider set opencode-go
+lorca provider set chatgpt
+lorca provider list
+```
+
+### Custom API endpoint
+
+For a proxy or a compatible server, fill in **Base URL** when you connect any API-key provider. The key is checked against that endpoint.
+
+## Pick a model per bot
+
+Each bot chooses its provider, model, and thinking level in the New Bot sheet, under **Runs with** in the desktop-app inspector, or in the phone's bot Details. A bot with no model set uses the provider's default.
+
+If a bot's provider is not connected, its turn ends with a note that says to connect it in Settings.
+
+## Disconnect
+
+**Disconnect** removes the credential from every device. For Grok it also revokes the sign-in.
+
+## Cost
+
+DeepSeek, Anthropic, and OpenCode Zen bill by usage; OpenCode Go applies usage to its subscription limits. The inspector shows what each chat has spent. ChatGPT and Grok sign-ins use your subscription, and the figure shown is what the work would cost at API rates.

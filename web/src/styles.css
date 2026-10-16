@@ -1,0 +1,201 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+/* The docs (Fumadocs UI), colored from the tokens below. */
+@import 'fumadocs-ui/css/shadcn.css';
+@import 'fumadocs-ui/css/preset.css';
+
+@custom-variant dark (@media (prefers-color-scheme: dark));
+
+/* Day side by default; the night side follows the system. */
+:root {
+  --radius: 0.75rem;
+  --background: oklch(0.985 0.002 285);
+  --foreground: oklch(0.17 0.005 285);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.17 0.005 285);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.17 0.005 285);
+  --primary: oklch(0.17 0.005 285);
+  --primary-foreground: oklch(0.985 0.002 285);
+  --secondary: oklch(0.95 0.003 285);
+  --secondary-foreground: oklch(0.17 0.005 285);
+  --muted: oklch(0.95 0.003 285);
+  --muted-foreground: oklch(0.48 0.01 285);
+  --accent: oklch(0.95 0.003 285);
+  --accent-foreground: oklch(0.17 0.005 285);
+  --destructive: oklch(0.58 0.22 25);
+  --border: oklch(0 0 0 / 10%);
+  --input: oklch(0 0 0 / 14%);
+  --ring: oklch(0.6 0.02 285);
+  --sidebar: oklch(0.975 0.003 285);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-border: var(--border);
+  --sidebar-accent: oklch(0.93 0.004 285);
+  --sidebar-accent-foreground: var(--foreground);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-ring: var(--ring);
+  --violet: #6b66f5;
+  --azure: #3d85f0;
+  --cyan: #2eb3dc;
+  --window-shadow: 0 40px 100px -30px rgba(30, 27, 75, 0.35);
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: oklch(0.13 0.005 285);
+    --foreground: oklch(0.97 0.002 285);
+    --card: oklch(0.17 0.005 285);
+    --card-foreground: oklch(0.97 0.002 285);
+    --popover: oklch(0.17 0.005 285);
+    --popover-foreground: oklch(0.97 0.002 285);
+    --primary: oklch(0.97 0.002 285);
+    --primary-foreground: oklch(0.15 0.005 285);
+    --secondary: oklch(0.24 0.006 285);
+    --secondary-foreground: oklch(0.97 0.002 285);
+    --muted: oklch(0.24 0.006 285);
+    --muted-foreground: oklch(0.68 0.01 285);
+    --accent: oklch(0.24 0.006 285);
+    --accent-foreground: oklch(0.97 0.002 285);
+    --destructive: oklch(0.66 0.2 25);
+    --border: oklch(1 0 0 / 10%);
+    --input: oklch(1 0 0 / 14%);
+    --sidebar: oklch(0.15 0.005 285);
+    --sidebar-accent: oklch(0.24 0.006 285);
+    --window-shadow: 0 40px 120px -30px rgba(0, 0, 0, 0.8);
+    color-scheme: dark;
+  }
+}
+
+@theme inline {
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+  --font-mono: 'SF Mono', ui-monospace, Menlo, monospace;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-violet: var(--violet);
+  --color-azure: var(--azure);
+  --color-cyan: var(--cyan);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    @apply bg-background text-foreground;
+    margin: 0;
+  }
+  ::selection {
+    background: oklch(0.55 0.18 280);
+    color: white;
+  }
+}
+
+@layer utilities {
+  /* A section as a stage: rounded, hairline edge, a little lift. */
+  .panel {
+    @apply rounded-[28px] border bg-card;
+  }
+  .display {
+    letter-spacing: -0.035em;
+    font-weight: 600;
+    line-height: 0.98;
+  }
+  /* Emphasis inside a headline: a brush stroke in the brand gradient under the words. The
+     stroke stretches to each line fragment when the span wraps. */
+  .brush {
+    padding-bottom: 0.04em;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 14' preserveAspectRatio='none'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' x2='1'%3E%3Cstop offset='0' stop-color='%236b66f5'/%3E%3Cstop offset='.55' stop-color='%233d85f0'/%3E%3Cstop offset='1' stop-color='%232eb3dc'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M3 9C40 4 75 12 110 7S170 3 197 8' fill='none' stroke='url(%23g)' stroke-width='6' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-size: 100% 0.22em;
+    background-position: 0 100%;
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
+  }
+  /* Han characters want air: no negative tracking. */
+  :lang(zh) .display {
+    letter-spacing: -0.01em;
+    line-height: 1.12;
+  }
+  /* Full-width glyphs run wider than Latin: scale the headline so each line stays whole. */
+  :lang(zh) h1.display {
+    font-size: clamp(2.5rem, 11vw, 4.6rem);
+    word-break: keep-all;
+  }
+  :lang(zh) h2.display {
+    font-size: clamp(1.75rem, 7.5vw, 3rem);
+  }
+  /* Film grain on top of the gradient stages. */
+  .grain::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.35;
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.6'/%3E%3C/svg%3E");
+  }
+  .window-frame {
+    @apply rounded-xl border border-white/15 sm:rounded-2xl;
+    box-shadow: var(--window-shadow);
+  }
+}
+
+/* The connector on the privacy diagram: a faint line with a soft pulse of light sweeping along
+   it. The pulse crosses in the first half of the cycle and waits out the second, so two wires
+   half a cycle apart read as one trip from the computer to the phone. Vertical on a phone,
+   horizontal above. */
+.wire {
+  background-color: rgba(255, 255, 255, 0.35);
+}
+.wire::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  height: 50%;
+  background: linear-gradient(to bottom, transparent, white, transparent);
+  animation: sweep-y 5s cubic-bezier(0.45, 0, 0.25, 1) infinite;
+  animation-delay: inherit;
+}
+@keyframes sweep-y {
+  0% { translate: 0 -100%; }
+  45%, 100% { translate: 0 200%; }
+}
+@media (min-width: 40rem) {
+  .wire::after {
+    height: 100%;
+    width: 50%;
+    background: linear-gradient(to right, transparent, white, transparent);
+    animation-name: sweep-x;
+  }
+  @keyframes sweep-x {
+    0% { translate: -100% 0; }
+    45%, 100% { translate: 200% 0; }
+  }
+}

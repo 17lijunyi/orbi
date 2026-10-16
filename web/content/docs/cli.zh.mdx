@@ -1,0 +1,71 @@
+---
+title: 命令行
+description: lorca 命令行持有你的密钥、运行你的智能体。桌面应用是它的一扇窗口，而 Runner 只需要它。
+icon: Terminal
+---
+
+`lorca` 才是真正干活的程序：它持有你的密钥，和中继、AI 服务商通信，并运行智能体。它支持 macOS、Linux 和 Windows。桌面应用内置了它，并替你启动；在没有桌面应用的电脑上，自己运行 CLI，那台电脑就是一个 Runner。
+
+在 macOS 上，应用自带的可执行文件位于 `Lorca.app/Contents/Resources/bin/lorca`。
+
+## 安装
+
+在没有桌面应用的 Apple 芯片 Mac 或 Linux 电脑上：
+
+```bash
+curl -fsSL https://lorca.app/install-cli.sh | sh
+```
+
+在 Windows 上，打开 PowerShell：
+
+```powershell
+irm https://lorca.app/install-cli.ps1 | iex
+```
+
+脚本会下载适合这台电脑的最新版本，用该版本的校验和核对下载的文件，把 `lorca` 放进 `~/.local/bin`，并把这个文件夹加入 PATH。再运行一次即可更新；正在运行的 `lorca serve` 会继续使用旧版本，直到重启。
+
+设置 `LORCA_VERSION=1.0.0` 安装指定版本，设置 `LORCA_INSTALL_DIR` 把 `lorca` 放到别的文件夹，设置 `LORCA_NO_MODIFY_PATH=1` 则不改动 PATH：`curl -fsSL https://lorca.app/install-cli.sh | LORCA_VERSION=1.0.0 sh`；在 PowerShell 里，先运行 `$env:LORCA_VERSION = '1.0.0'` 再运行 `irm`。
+
+在 Windows 上，智能体用 Git for Windows 自带的 bash 运行命令，所以也要安装 [Git for Windows](https://git-scm.com/downloads/win)。
+
+## 命令
+
+| 命令 | 作用 |
+| --- | --- |
+| `lorca serve` | 运行服务。不带命令时的默认行为。 |
+| `lorca identity new` | 创建身份并打印备份短语。 |
+| `lorca identity restore <phrase>` | 用备份短语恢复身份。 |
+| `lorca identity show` | 显示这台设备的身份。 |
+| `lorca pair` | 显示配对字符串，并等待另一台设备。 |
+| `lorca pair <string>` | 用配对字符串加入一个账户。 |
+| `lorca provider set <kind> [api-key]` | 接入 `deepseek`、`anthropic`、`opencode`、`opencode-go`、`chatgpt` 或 `grok`。省略密钥时从标准输入读取；`--base-url` 设置自定义地址。 |
+| `lorca provider remove <kind>` | 在每台设备上断开一个服务商。 |
+| `lorca provider list` | 列出已接入的服务商。 |
+| `lorca status` | 以 JSON 打印这台设备的状态：设备、智能体、聊天、服务商。 |
+| `lorca doctor` | 检查主目录、身份、端口和中继，并指出哪里有问题。 |
+
+## 无屏幕的 Runner
+
+```bash
+export LORCA_RELAY_URL=https://relay.example.com
+lorca pair 'lorca://pair?…'   # 来自已有设备上的“配对设备…”或 `lorca pair`
+lorca serve
+```
+
+这台电脑会出现在你的设备列表里，你可以从桌面应用或手机为它创建智能体。
+
+## 环境变量
+
+| 变量 | 设置什么 |
+| --- | --- |
+| `LORCA_HOME` | 密钥、凭据和聊天的存放位置。默认 `~/.lorca`。 |
+| `LORCA_PORT` | 应用连接的本地端口。默认 `4862`。 |
+| `LORCA_RELAY_URL` | 中继地址。 |
+| `LORCA_SHELL` | 智能体运行命令所用的 shell。默认 `/bin/bash`；在 Windows 上是 Git for Windows 的 bash。在 macOS 和 Linux 上，无论用哪个 shell，命令都会得到你的登录 shell 的 `PATH` 和环境变量。 |
+| `LORCA_DEEPSEEK_MODEL`、`LORCA_ANTHROPIC_MODEL`、`LORCA_CHATGPT_MODEL`、`LORCA_GROK_MODEL` | 没有指定模型的智能体使用的默认模型。 |
+
+## 文件
+
+一切都在 `~/.lorca/` 下，只有你的用户可读：身份和机器密钥、服务商凭据、设置、聊天、附件、插件，以及每个智能体一个的工作区文件夹（里面有它的记忆）。
+
+macOS 应用把服务的日志写到 `~/Library/Logs/Lorca/cli.log`。

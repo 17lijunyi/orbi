@@ -1,0 +1,22 @@
+{
+  "platforms": [
+    "apple",
+    "android"
+  ],
+  "apple": {
+    "modules": [
+      "LorcaCoreModule",
+      "MarkdownViewModule",
+      "CompactWidthViewModule",
+      "SoftScrollEdgeViewModule",
+      "ShimmerViewModule"
+    ]
+  },
+  "android": {
+    "modules": [
+      "app.lorca.core.LorcaCoreModule",
+      "app.lorca.core.MarkdownViewModule",
+      "app.lorca.core.ShimmerViewModule"
+    ]
+  }
+}

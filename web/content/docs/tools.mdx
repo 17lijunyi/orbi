@@ -1,0 +1,61 @@
+---
+title: Tools
+description: What a bot can do on its Runner, including files, search, the shell, the web, and teamwork.
+icon: Wrench
+---
+
+A bot works on its Runner with the same kind of tools a coding agent gets. It runs **as you**, with your user's permissions, on the computer you assigned it to.
+
+## On the computer
+
+| Tool | What the bot does with it |
+| --- | --- |
+| **Read, write, edit** | Opens, creates, and changes files. |
+| **Grep, find, ls** | Finds the line, the file, or the folder before touching anything. These respect `.gitignore`. |
+| **Shell** | Runs commands: builds, tests, git, scripts. **Stop** kills the running command. |
+
+Relative paths resolve in the bot's [working directory](/docs/bots#working-directory).
+
+Commands see the same `PATH` and variables as your terminal. On a Mac or Linux, Lorca reads them from your login shell, whether zsh, bash, or fish, when it starts, so `npm`, `cargo`, and `brew` work even when the app started Lorca. Plugin servers get them too. Restart Lorca after you change your shell's configuration.
+
+<Callout type="warn" title="A bot has your access">
+  Shell commands run as your user and are not limited to the working directory. They can control files, processes, credentials, applications, and the network. Give a bot a description with constraints that match the trust you would give a script you run yourself, and assign bots to a machine you are comfortable with them controlling.
+</Callout>
+
+Before a shell command starts, Lorca parses all of its stages and sends the complete command through [Auto-review](/docs/auto-review). Safe work runs automatically; for risky work, the command's card asks you first. An allowed command retains your user's full access.
+
+## The command's card
+
+A command shows in the chat as a card only while it needs you: while Auto-review asks for your permission (**Allow once**, **Always allow**, or **Deny**), and once the bot leaves a running command to you, because its turn ended with the command still running or it waits on a question the command asks. That card shows the latest output and **Stop**. Until then, the shimmering line says what the bot is running. Click or tap the command to see all of it.
+
+## Running tasks
+
+Every command the chat's bots have running shows under **Running tasks**, including the ones a bot is still dealing with. While a chat has one, a terminal button sits in the chat's toolbar, beside **⋯** on a phone; in the desktop app, a badge on it counts them when there are two or more. It opens the list: what each command does, who runs it, and for how long. The desktop app shows each command, its latest output, and **Stop** right in the list; on a phone, tap a command for them. **Stop** ends that command alone; the bot hears that it stopped and carries on. A command shows there once it has run for two seconds, so quick ones never do.
+
+## When a command asks for input
+
+Each command runs in a terminal of its own, so `sudo`, `ssh`, a key's passphrase, or a `[Y/n]` can ask for an answer. A command that stops at a question, or prints nothing for 20 seconds, doesn't hold up the bot: its turn goes on, and the bot answers what it knows. The rest is yours, on the command's card.
+
+- **Answer** from the card, on any of your Devices. What you type goes straight to the command. It is never saved in the chat, and the terminal doesn't echo it, so the bot doesn't read it back. Bots are told to leave passwords and one-time codes to you. When the command finishes, the bot hears how it went and carries on.
+- **Stop** from the card or from Running tasks. **Stop** in the desktop app's composer ends the whole turn, its commands included.
+
+Anything a bot types into a command goes through [Auto-review](/docs/auto-review) first, like a new command. A command still waiting stops by itself after 30 minutes without output, when Lorca quits, and when its chat is deleted. On Windows, commands get no input.
+
+## On the web
+
+DeepSeek, Anthropic, ChatGPT, and Grok bots search the web and read pages when the answer is not on the disk. The search runs on the provider's side, so it needs no setup. Grok bots can also search X.
+
+## With the team
+
+| Tool | What it does |
+| --- | --- |
+| **Message a bot** | Hands work to a bot outside the current chat. See [Chats](/docs/chats#bots-that-message-each-other). |
+| **List teammates** | Sees every bot, its job, its Runner, and whether that Runner is online. |
+| **Create and edit bots** | Builds the team: a new teammate, or a change to one's description, model, or working directory. |
+| **Routines** | Schedules its own recurring work. See [Routines](/docs/routines). |
+| **Memory** | Saves and recalls what it has learned. See [Memory](/docs/memory). |
+| **Plugins** | Searches the marketplace, asks to install a plugin, and asks you to sign in. See [Plugins](/docs/plugins). |
+
+## Plugin tools
+
+Every [plugin](/docs/plugins) installed on a Runner makes its tools discoverable to the bots there: creating a GitHub issue, reading a Linear ticket, driving a browser. Lorca loads only the matching tool schemas when a task needs them. Actions that change something go through [Auto-review](/docs/auto-review) first.

@@ -1,0 +1,122 @@
+import type { Messages } from './en'
+
+export const zh: Messages = {
+  meta: {
+    title: 'Lorca',
+    description:
+      '运行在你自己电脑上的 AI 队友。可以单聊，也可以拉群，让它们处理你的文件和任务，它们会自己分工协作。',
+  },
+  nav: {
+    turns: '群聊',
+    relay: '隐私',
+    tools: '它能做什么',
+    faq: '常见问题',
+    docs: '文档',
+    download: '下载',
+  },
+  hero: {
+    badge: 'Mac 版现已推出',
+    title: '拉个群，<br/>让 AI 队友<accent>分工</accent>。',
+    body: '和一个队友单聊，或者把几个拉进一个群聊。它们可以读写你的文件、运行命令，并记住你说过的话。交给它们一件事，它们会自己分工协作。',
+    how: '看看它怎么运作',
+    platforms: 'Linux 和 Windows 可通过命令行使用。',
+  },
+  turns: {
+    eyebrow: '群聊',
+    title: '多个智能体，一个群聊。',
+    body: '在群里发一条消息，每个智能体会依次轮到一次。消息是发给它的，或者它有有用的信息要补充，它才回复；否则就跳过这一轮。@ 某个智能体的名字，它会先回复。',
+    alt: 'macOS 上的 Lorca：研究员、开发者和项目经理分别在两台运行设备上工作，在群聊中一起准备产品发布。',
+  },
+  relay: {
+    eyebrow: '隐私',
+    title: '在你的电脑上运行。',
+    body: '智能体使用你连接的 AI 服务，在你的电脑上处理文件、运行命令。配对手机或另一台电脑，就能跨设备继续聊天。聊天记录在通过中继同步前加密，只有你的设备能解密。',
+    alt: '加密数据从你的电脑经过中继传到你的手机，只有你的设备能解密。',
+    nodes: {
+      computer: { title: '你的电脑', body: '发送前已加密' },
+      relay: { title: '中继', body: '只负责传输，无法解密' },
+      phone: { title: '你的手机', body: '用你的密钥解密' },
+    },
+  },
+  tools: {
+    eyebrow: '工具',
+    title: '文件、命令和网页。',
+    body: '在你的任意一台电脑上给智能体一个文件夹。它只在那个文件夹里、那台电脑上工作，并告诉你它运行了什么。',
+    kinds: {
+      files: { title: '文件', body: '在你给它的文件夹里打开、修改和新建文件，也在那里运行命令。' },
+      web: { title: '网络', body: '搜索网页并阅读页面内容。' },
+      memory: { title: '记忆', body: '跨聊天保留笔记，同一件事不用再说第二遍。' },
+      plugins: { title: '应用', body: '接入 GitHub、Notion、Linear 等应用。操作前会先征求你的同意。' },
+    },
+  },
+  chef: {
+    eyebrow: '开始使用',
+    title: '从一个智能体开始。',
+    body: '每个新账户都自带一个名叫“幕僚长”的智能体。告诉它你平时做什么，它会建议几个智能体，各负责一类任务。你确认后，幕僚长就把它们创建出来。之后随时可以改名或删除。',
+    steps: [
+      { title: '创建账户', body: '不用邮箱，不用密码，只有一串要抄下来的备份短语。' },
+      { title: '连接 AI 服务商', body: '登录 ChatGPT 或 Grok，或者粘贴一个 DeepSeek API 密钥。' },
+      { title: '和幕僚长聊聊', body: '说说你平时做什么，然后确认它建议的智能体。' },
+      { title: '再加一台电脑', body: '粘贴配对码，再选择哪些智能体在那台电脑上运行。' },
+    ],
+  },
+  faq: {
+    title: '常见问题',
+    items: [
+      { q: '需要注册账号或者服务器吗？', a: '不需要。Lorca 在你自己的电脑上运行，不用注册，也不用架服务器。你的备份短语就是你的账户。' },
+      { q: '支持哪些平台？', a: 'Mac 用应用，Linux 和 Windows 用命令行。这些平台上的智能体都能加入同一个群聊。' },
+      { q: '它用的是哪家 AI？', a: '你自己的账号或 API 密钥。登录 ChatGPT 或 Grok，或者添加一个 DeepSeek API 密钥。每个智能体可以用不同的服务商，随时可以换。' },
+      { q: '智能体能在我的电脑上做什么？', a: '在你给它的文件夹里读取、修改、新建文件和运行命令。它以你的用户权限在那台电脑上运行，并告诉你它运行了什么。' },
+      { q: '有人能看到我的聊天记录吗？', a: '不能。聊天记录在同步之前就已在你的电脑上加密。中继只保存加密数据，没有密钥，所以看不到智能体名字、聊天标题和消息内容。' },
+    ],
+  },
+  cta: {
+    title: '开始使用 Lorca。',
+    body: '下载 Mac 版，或在 Linux 和 Windows 上使用命令行。',
+  },
+  docs: {
+    title: 'Lorca 文档',
+  },
+  download: {
+    title: '下载 Lorca',
+    description: '下载 Lorca Mac 版，通过 TestFlight 加入 iPhone 和 iPad 版测试，或在任意电脑上安装 Lorca CLI。',
+    mac: {
+      title: 'Mac',
+      body: '和智能体聊天，并在你的 Mac 上运行它们。',
+      action: '下载 Mac 版',
+      version: '版本 {{version}}',
+      system: 'macOS {{version}} 或更高版本',
+      appleSilicon: 'Apple 芯片',
+      unavailable: '暂时无法获取最新版本，请刷新页面重试。',
+    },
+    ios: {
+      title: 'iPhone 和 iPad',
+      body: '和智能体聊天，它们继续在你的电脑上运行。扫描桌面应用里的二维码即可配对。',
+      action: '加入 TestFlight 测试',
+      note: '需要先从 App Store 安装 TestFlight。',
+    },
+    windowsLinux: {
+      title: 'Windows 和 Linux',
+      body: '和智能体聊天，并在你的 Windows 或 Linux 电脑上运行它们。',
+    },
+    android: {
+      title: 'Android',
+      body: '在 Android 手机上和智能体聊天。',
+    },
+    soon: '即将推出',
+    cli: {
+      title: 'Lorca CLI',
+      body: '让一台电脑成为 Runner：它运行你的智能体，但没有聊天界面。Mac、Windows 和 Linux 应用都已内置 CLI，只有在没装应用的电脑上才需要单独安装。把它和你的账户配对，再用桌面应用或手机为它创建智能体。',
+      unix: 'macOS 和 Linux',
+      windows: 'Windows（PowerShell）',
+      note: '<docs>CLI 文档</docs>',
+      copy: '复制',
+      copied: '已复制',
+    },
+  },
+  footer: {
+    privacy: '隐私',
+    faq: '常见问题',
+    download: '下载',
+  },
+}

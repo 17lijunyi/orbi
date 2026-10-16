@@ -1,0 +1,168 @@
+import AppKit
+
+/// The first window is ready while the CLI starts and loads the account.
+final class LoadingViewController: NSViewController {
+    override func loadView() {
+        let container = BackgroundView()
+        container.fillColor = Theme.transcriptBackground
+        container.cornerRadius = 0
+
+        let progress = NSProgressIndicator()
+        progress.style = .spinning
+        progress.controlSize = .regular
+        progress.startAnimation(nil)
+        let label = Build.label(L("Loading…"), font: .systemFont(ofSize: 13), color: .secondaryLabelColor, alignment: .center)
+        let column = Build.stack([progress, label], spacing: 12)
+        column.alignment = .centerX
+        container.addSubview(column)
+        NSLayoutConstraint.activate([
+            column.centerXAnchor.constraint(equalTo: container.centerXAnchor),
+            column.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+        ])
+        view = container
+    }
+}
+
+/// Shown when the local CLI is not answering on 127.0.0.1.
+final class OfflineViewController: NSViewController {
+    var onRetry: (() -> Void)?
+
+    private let command = AppInfo.cliCommand
+    private let hint = Build.label("", font: Theme.Font.caption, color: .tertiaryLabelColor, lines: 0, alignment: .center)
+
+    func refreshHint() {
+        hint.stringValue = "\(AppStore.shared.offlineStatus) · 127.0.0.1:\(Preferences.cliPort)"
+    }
+
+    override func loadView() {
+        let container = BackgroundView()
+        container.fillColor = Theme.transcriptBackground
+        container.cornerRadius = 0
+
+        let icon = NSImageView()
+        icon.image = NSImage(systemSymbolName: "bolt.horizontal.circle", accessibilityDescription: nil)
+        icon.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 40, weight: .regular)
+        icon.contentTintColor = .tertiaryLabelColor
+        icon.translatesAutoresizingMaskIntoConstraints = false
+
+        let title = Build.label(
+            L("The Lorca CLI isn't answering"), font: .systemFont(ofSize: 18, weight: .semibold),
+            alignment: .center)
+        let body = Build.label(
+            L("Your bots, keys and transcripts live in the CLI on this computer. The app starts it on its own; you can also run it from a terminal, and this window reconnects either way."),
+            font: .systemFont(ofSize: 12.5), color: .secondaryLabelColor, lines: 0, alignment: .center
+        )
+
+        let commandBox = BackgroundView()
+        commandBox.cornerRadius = 8
+        commandBox.fillColor = Theme.codeBackground
+        let commandLabel = Build.label("$ \(command)", font: Theme.Font.code, color: .labelColor)
+        commandLabel.isSelectable = true
+        let copyButton = CopyFeedbackButton()
+        copyButton.image = NSImage(systemSymbolName: "doc.on.doc", accessibilityDescription: L("Copy command"))
+        copyButton.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 12, weight: .medium)
+        copyButton.bezelStyle = .accessoryBarAction
+        copyButton.isBordered = false
+        copyButton.toolTip = L("Copy command")
+        copyButton.target = self
+        copyButton.action = #selector(copyCommand(_:))
+        copyButton.translatesAutoresizingMaskIntoConstraints = false
+        commandBox.addSubview(commandLabel)
+        commandBox.addSubview(copyButton)
+
+        let retry = NSButton(title: L("Retry Connection"), target: self, action: #selector(retry))
+        retry.bezelStyle = .rounded
+        retry.keyEquivalent = "\r"
+        retry.controlSize = .large
+        retry.translatesAutoresizingMaskIntoConstraints = false
+
+        hint.font = Theme.Font.caption
+        hint.textColor = .tertiaryLabelColor
+        hint.alignment = .center
+        hint.lineBreakMode = .byWordWrapping
+        hint.maximumNumberOfLines = 0
+        refreshHint()
+
+        let column = Build.stack([icon, title, body, commandBox, retry, hint], spacing: 12)
+        column.alignment = .centerX
+        column.setCustomSpacing(18, after: icon)
+        column.setCustomSpacing(20, after: body)
+        column.setCustomSpacing(20, after: commandBox)
+
+        container.addSubview(column)
+        NSLayoutConstraint.activate([
+            column.centerXAnchor.constraint(equalTo: container.centerXAnchor),
+            column.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+            column.widthAnchor.constraint(equalToConstant: 420),
+            body.widthAnchor.constraint(equalToConstant: 380),
+            hint.widthAnchor.constraint(equalToConstant: 380),
+
+            commandLabel.leadingAnchor.constraint(equalTo: commandBox.leadingAnchor, constant: 12),
+            commandLabel.topAnchor.constraint(equalTo: commandBox.topAnchor, constant: 9),
+            commandLabel.bottomAnchor.constraint(equalTo: commandBox.bottomAnchor, constant: -9),
+            copyButton.leadingAnchor.constraint(equalTo: commandLabel.trailingAnchor, constant: 14),
+            copyButton.trailingAnchor.constraint(equalTo: commandBox.trailingAnchor, constant: -10),
+            copyButton.centerYAnchor.constraint(equalTo: commandBox.centerYAnchor),
+        ])
+
+        view = container
+        AppStore.shared.observe(self) { [weak self] event in
+            if case .connectionChanged = event { self?.refreshHint() }
+        }
+    }
+
+    @objc private func copyCommand(_ sender: CopyFeedbackButton) {
+        NSPasteboard.general.clearContents()
+        if NSPasteboard.general.setString(command, forType: .string) {
+            sender.showCopied()
+        }
+    }
+
+    @objc private func retry() {
+        onRetry?()
+    }
+}
+
+/// Shown when nothing is selected in the sidebar.
+final class PlaceholderViewController: NSViewController {
+    var onNewBot: (() -> Void)?
+
+    override func loadView() {
+        let container = BackgroundView()
+        container.fillColor = Theme.transcriptBackground
+        container.cornerRadius = 0
+
+        let icon = NSImageView()
+        icon.image = NSImage(systemSymbolName: "bubble.left.and.bubble.right", accessibilityDescription: nil)
+        icon.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 34, weight: .regular)
+        icon.contentTintColor = .tertiaryLabelColor
+        icon.translatesAutoresizingMaskIntoConstraints = false
+
+        let title = Build.label(
+            L("No chat selected"), font: .systemFont(ofSize: 16, weight: .semibold), alignment: .center)
+        let body = Build.label(
+            L("Pick a conversation in the sidebar, or start a new one."),
+            font: .systemFont(ofSize: 12.5), color: .secondaryLabelColor, alignment: .center)
+
+        let button = NSButton(title: L("New Bot…"), target: self, action: #selector(newBot))
+        button.bezelStyle = .rounded
+        button.controlSize = .large
+
+        let column = Build.stack([icon, title, body, button], spacing: 10)
+        column.alignment = .centerX
+        column.setCustomSpacing(16, after: icon)
+        column.setCustomSpacing(18, after: body)
+
+        container.addSubview(column)
+        NSLayoutConstraint.activate([
+            column.centerXAnchor.constraint(equalTo: container.centerXAnchor),
+            column.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+        ])
+
+        view = container
+    }
+
+    @objc private func newBot() {
+        onNewBot?()
+    }
+}
